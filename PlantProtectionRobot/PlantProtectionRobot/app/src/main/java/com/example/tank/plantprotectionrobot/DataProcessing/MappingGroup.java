@@ -57,14 +57,14 @@ public class MappingGroup {
     }
 
     /***
-     *  //将GSP组所有数据转化为
+     *  //将GSP组所有数据转化为字节流
      * @param gps 一个gps组类
      *@param index 偏移地址
      * @return true转化成功 false失败
      */
     public static boolean MappingGroupToArray(MappingGroup gps,byte[] gpsArray,int index){
         int count = index;
-        if(gpsArray.length < GPS_GROUP_LENGTH){
+        if(gpsArray.length - index< GPS_GROUP_LENGTH){
             return false;
         }
         //GPS状态
