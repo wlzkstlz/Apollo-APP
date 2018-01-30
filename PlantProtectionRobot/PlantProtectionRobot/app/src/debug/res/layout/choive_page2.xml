@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:weightSum="1">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.08"
+        android:gravity="top|right"
+        android:orientation="horizontal">
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.1"
+        android:gravity="center"
+        android:text="连接测绘杆"
+        android:textColor="@color/colorBack"
+        android:textSize="24sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.06"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal">
+
+        <com.example.tank.plantprotectionrobot.ChoicePage.MySpinner
+            android:id="@+id/spinner1"
+            android:layout_width="220dp"
+            android:layout_height="match_parent"
+            android:background="@drawable/spinner_custom" />
+
+    </LinearLayout>
+
+
+    <TextView
+        android:id="@+id/textView3"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.12"
+        android:gravity="center"
+        android:text="选择测绘类型"
+        android:textColor="@color/colorBack"
+        android:textSize="24sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.06"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal">
+
+        <Spinner
+            android:id="@+id/spinner2"
+            android:layout_width="220dp"
+            android:layout_height="match_parent"
+            android:background="@drawable/spinner_custom" />
+    </LinearLayout>
+
+
+    <TextView
+        android:id="@+id/textView4"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.08" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.08"
+        >
+
+        <TextView
+            android:layout_height="match_parent"
+            android:layout_width="0dp"
+            android:layout_weight="0.15"
+            android:gravity="center"
+            android:text="经度"
+            android:textSize="18sp" />
+        <EditText
+            android:id="@+id/editText1"
+            android:layout_width="0dp"
+            android:layout_weight="0.35"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_horizontal"
+            android:digits="0123456789."
+            android:maxLength="12"
+            android:inputType="number"
+            android:text="113.894763"/>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="0.15"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="纬度"
+            android:textSize="18sp" />
+        <EditText
+            android:id="@+id/editText2"
+            android:layout_width="0dp"
+            android:layout_weight="0.35"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_horizontal"
+            android:digits="0123456789."
+            android:inputType="number"
+            android:maxLength="12"
+            android:text="22.958744"  />
+    </LinearLayout>
+
+    <TextView
+
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.1" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.1"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/button1"
+            android:layout_width="149dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_horizontal"
+            android:text="开始测绘" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="10dp"
+        android:layout_weight="0.1"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/button2"
+            android:layout_width="149dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_horizontal"
+            android:text="结束测绘" />
+    </LinearLayout>
+
+</LinearLayout>
+

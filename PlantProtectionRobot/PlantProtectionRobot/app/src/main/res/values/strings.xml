@@ -1,0 +1,50 @@
+<resources>
+    <string name="app_name">PlantProtectionRobot</string>
+
+    <string-array name="province_spinner">
+        <item>"广西壮族自治区"</item>
+
+    </string-array>
+    <string-array name="city_spinner">
+        <item>"贺州市"</item>
+
+    </string-array>
+
+    <string-array name="county_spinner">
+        <item>"富川瑶族自治县"</item>
+
+    </string-array>
+
+    <string-array name="town_spinner">
+        <item>"富阳镇"</item>
+        <item>"白沙镇"</item>
+        <item>"莲山镇"</item>
+        <item>"古城镇"</item>
+        <item>"福利镇"</item>
+        <item>"麦岭镇"</item>
+        <item>"葛坡镇"</item>
+        <item>"城北镇"</item>
+        <item>"朝东镇"</item>
+        <item>"新华乡"</item>
+        <item>"石家乡"</item>
+        <item>"柳家乡"</item>
+    </string-array>
+
+
+    <string-array name="RTKBleId_spinner">
+        <item>"5000001"</item>
+        <item>"5000002"</item>
+    </string-array>
+
+    <string-array name="MapingType_spinner">
+        <item>"主干道"</item>
+        <item>"果园"</item>
+    </string-array>
+
+    <string-array name="carCtr_spinner">
+        <item>"自动作业"</item>
+        <item>"手动作业"</item>
+        <item>"手动转场"</item>
+    </string-array>
+
+</resources>
