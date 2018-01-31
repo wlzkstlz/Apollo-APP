@@ -328,10 +328,14 @@ public class ConnectRTK extends Fragment {
                 @Override
                 public void BleScanChanged(ArrayList<BluetoothDevice> bleDeviceList) {
 
-                    mBleDeviceList.addAll(bleDeviceList.subList(0,bleDeviceList.size()));
-                        Log.d(TAG,"查找到蓝牙个数："+mBleDeviceList.size());
-                    //发送通知
-                    handler.sendEmptyMessage( BLE_SCAN_ON);
+                    if (bleDeviceList.size()>0) {
+                        mBleDeviceList.clear();
+                        mBleDeviceList.addAll(bleDeviceList.subList(0, bleDeviceList.size()));
+                        Log.d(TAG, "查找到蓝牙个数：" + mBleDeviceList.size());
+                        //发送通知
+                        handler.sendEmptyMessage( BLE_SCAN_ON);
+                    }
+
                 }
 
                 //BLE接收到数据
