@@ -70,6 +70,8 @@ public class BLEService extends Service {
     public static BluetoothGattCharacteristic mCharacteristic;    //当前连接的
 
     private final static String UUID_KEY_DATA = "0000ffe1-0000-1000-8000-00805f9b34fb";
+    private final static String UUID_KEY_CAR = "0000fff1-0000-1000-8000-00805f9b34fb";//车上用的蓝牙
+
     private int revCount =0;
     private byte[] revBuf = new byte[200];
     private int revWaitTime = 0; //接收等待时间，超时侧重新开始接收数据，防止从中间截断数据
@@ -525,6 +527,13 @@ public class BLEService extends Service {
 
                 //UUID_KEY_DATA是可以跟蓝牙模块串口通信的Characteristic
                 if(gattCharacteristic.getUuid().toString().equals(UUID_KEY_DATA)){
+                    //设置串口可接收通知的，设置其可以接收通知（notification）
+                    mBLE.setCharacteristicNotification(gattCharacteristic, true);
+
+                    Log.i(TAG,"连接到串口BLE");
+
+                    mCharacteristic = gattCharacteristic;
+                }else if(gattCharacteristic.getUuid().toString().equals(UUID_KEY_CAR)){
                     //设置串口可接收通知的，设置其可以接收通知（notification）
                     mBLE.setCharacteristicNotification(gattCharacteristic, true);
 

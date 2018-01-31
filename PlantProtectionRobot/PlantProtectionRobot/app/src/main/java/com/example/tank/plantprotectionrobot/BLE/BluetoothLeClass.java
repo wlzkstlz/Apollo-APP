@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -229,8 +230,8 @@ public class BluetoothLeClass {
             return;
         }
         mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
-        //mBluetoothGatt.writeDescriptor(descriptor)不需要也能接收，设置这个有什么作用?
-      //  BluetoothGattDescriptor descriptor = characteristic.getDescriptor(characteristic.getUuid());
+    //    mBluetoothGatt.writeDescriptor(descriptor)不需要也能接收，设置这个有什么作用?
+    //    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(characteristic.getUuid());
 
       //  if (descriptor != null) {
       //      descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE );
