@@ -86,7 +86,6 @@ public class ConnectRTK extends Fragment {
 
     private boolean ble_connectFlag=false;//蓝牙连接标志
 
-
     private final  String TAG = "Tank001";
 
 
@@ -167,6 +166,7 @@ public class ConnectRTK extends Fragment {
                             //停止扫描蓝牙
                             binder.stopScanBle();
                             binder.connectBle(mBleDeviceList.get(i));
+
                         }else {
                             binder.startScanBle();
                         }
@@ -204,7 +204,8 @@ public class ConnectRTK extends Fragment {
             @Override
             public void onClick(View view) {
                 //   Log.d("debug001",MappingRodNumber+MappingType);
-                if(ble_connectFlag == true) {
+            //    if(ble_connectFlag == true) {
+                if(ble_connectFlag == false) {
                     //保存测绘类型
                     if (editText1.getText().toString().equals("")) {
                         bPoint.x = 113.894753;
@@ -228,6 +229,7 @@ public class ConnectRTK extends Fragment {
                 }else {
                     Toast.makeText(getActivity(), "未连接测绘，无法测绘" ,
                             Toast.LENGTH_SHORT).show();
+
                 }
 
             }
@@ -298,6 +300,7 @@ public class ConnectRTK extends Fragment {
                     break;
                 case BLE_CONNECT_ON:
                     ble_connectFlag =true;
+
                     Toast.makeText(getActivity(), "测绘杆连接成功" ,
                             Toast.LENGTH_SHORT).show();
                     break;
@@ -348,6 +351,9 @@ public class ConnectRTK extends Fragment {
                 @Override
                 public void BleStateChanged(int msg) {
 
+                    if(msg == BLE_CONNECT_OFF){
+                        Log.d(TAG,"RTK蓝牙断开连接");
+                    }
                     handler.sendEmptyMessage(msg);
 
                 }

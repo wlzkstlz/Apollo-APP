@@ -73,6 +73,7 @@ public class BLEService extends Service {
     private final static String UUID_KEY_CAR = "0000fff1-0000-1000-8000-00805f9b34fb";//车上用的蓝牙
 
     private int revCount =0;
+    private boolean revStart =false;
     private byte[] revBuf = new byte[200];
     private int revWaitTime = 0; //接收等待时间，超时侧重新开始接收数据，防止从中间截断数据
 
@@ -99,7 +100,7 @@ public class BLEService extends Service {
         //开始搜索蓝牙
         public void startScanBle(){
             //开启蓝牙
-            if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            if (mBluetoothAdapter != null || !mBluetoothAdapter.isEnabled()) {
                 mBluetoothAdapter.enable();
             }
 
@@ -108,8 +109,10 @@ public class BLEService extends Service {
         }
         //停止搜索蓝牙
         public void stopScanBle(){
-            if(mBluetoothAdapter.isEnabled()) {
-                scanLeDevice(false);
+            if(mBluetoothAdapter !=null) {
+                if (mBluetoothAdapter.isEnabled()) {
+                    scanLeDevice(false);
+                }
             }
         }
         //断开蓝牙连接
@@ -120,17 +123,19 @@ public class BLEService extends Service {
         }
         //开始连接蓝牙
         public boolean connectBle(BluetoothDevice bluetoothDevice){
+            if(mBluetoothAdapter !=null) {
+                if (mBluetoothAdapter.checkBluetoothAddress(bluetoothDevice.getAddress())) {
+                    mBLE.connect(bluetoothDevice.getAddress());
 
-            if (mBluetoothAdapter.checkBluetoothAddress(bluetoothDevice.getAddress())){
-               mBLE.connect(bluetoothDevice.getAddress());
+                    isConnectedBle = bluetoothDevice;
 
-                isConnectedBle = bluetoothDevice;
-
-                Log.d(TAG, "连接蓝牙：" + bluetoothDevice.toString());
-            }else {
+                    Log.d(TAG, "连接蓝牙：" + bluetoothDevice.toString());
+                } else {
+                    return false;
+                }
+            }else{
                 return false;
             }
-
             return true;
         }
 
@@ -203,6 +208,7 @@ public class BLEService extends Service {
                                     dataCallback.BleStateChanged(msgWhat);
                                 }
                                 msgWhat=0;
+                                Log.d(TAG,"BEL蓝牙断开连接");
                                 break;
                            case BLE_CONNECT_ON: //蓝牙连接成功，回调
 
@@ -228,13 +234,15 @@ public class BLEService extends Service {
                                 break;
                         }
 
-                        revWaitTime++; //RTK传输数据周期是100ms，超过80ms还没接收完侧认为数据被截断
-                        if(8 == revWaitTime){
-                            revCount=0;
+
+                        if(revWaitTime>0){
+                            revWaitTime--; //RTK传输数据周期是100ms，超过50ms还没接收完侧认为数据被截断
                         }
 
-                        /*
-                        myPiont=myPiont+0.00001;
+                    }
+
+                    /*
+                        myPiont=myPiont+0.0000005;
                         MappingGroup rtkMap=new MappingGroup();
                         rtkMap.rtkState=1;   //RTK转台
                         rtkMap.GPSTime_tow = 100000; //时间
@@ -247,12 +255,10 @@ public class BLEService extends Service {
                         if(dataCallback != null) {
                             dataCallback.BleDataChanged(rtkMap);
                         }
-                        */
-
-                    }
+                    */
                     try {
-                  //      sleep(10); //延时
-                        sleep(100); //测试用延时
+                        sleep(10); //延时
+                    //   sleep(100); //测试用延时
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -278,7 +284,7 @@ public class BLEService extends Service {
             }
 
             //开启蓝牙
-            if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            if (mBluetoothAdapter != null || !mBluetoothAdapter.isEnabled()) {
                 mBluetoothAdapter.enable();
             }
 
@@ -369,17 +375,23 @@ public class BLEService extends Service {
                 @Override
                 public void run() {
               //      Log.d(TAG,"没有搜索到蓝牙");
-                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                    if(mBleDeviceList.size() == 0) {//没有查找到测绘杆
-                        msgWhat = BLE_SCAN_OFF;
+                    if(mBluetoothAdapter !=null){
+                       mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                       if(mBleDeviceList.size() == 0) {//没有查找到测绘杆
+                             msgWhat = BLE_SCAN_OFF;
+                       }
                     }
                 }
             }, SCAN_PERIOD);
 
          //   Log.d(TAG,"开始搜索蓝牙");
-            mBluetoothAdapter.startLeScan(mLeScanCallback);
+            if(mBluetoothAdapter !=null) {
+                mBluetoothAdapter.startLeScan(mLeScanCallback);
+            }
         } else {
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            if(mBluetoothAdapter !=null) {
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            }
 
         }
     }
@@ -444,21 +456,24 @@ public class BLEService extends Service {
 
            switch (bleWorkTpye) {
                case BLE_MAPPING:
-               revCount++;
-               //接收第一帧是延时清理，防止数据被截断接收
-               if (revCount == 1) {
-                   revBuf[0] = 0; //初始化，记录接收长度，一次最大200字节
-                   revWaitTime = 0;//开始计时
-               }
 
                byte[] buf = characteristic.getValue();
 
-               System.arraycopy(buf, 0, revBuf, revBuf[0] + 1, buf.length);
-               revBuf[0] += (byte) buf.length;//数组起始地址偏移
+               if(revCount == 0 && buf[0] == 0x55  && revWaitTime ==0){
+                   revStart = true;
+                   revBuf[0]=0;
+               }
 
+               if(revStart == true) {
+                   revCount++;
+
+                   System.arraycopy(buf, 0, revBuf, revBuf[0] + 1, buf.length);
+                   revBuf[0] += (byte) buf.length;//数组起始地址偏移
+               }
                if (revCount == 3) {
 
-                   revWaitTime = 0;
+                   revStart = false;
+                   revCount=0;
                    byte[] bleBuf = new byte[revBuf[0]];
                    //复制缓存数据，除去第一位后为实际接收数据
                    System.arraycopy(revBuf, 1, bleBuf, 0, revBuf[0]);
@@ -492,6 +507,7 @@ public class BLEService extends Service {
                    } else {
                        Log.d(TAG, "接收数据校验失败");
 
+                       revWaitTime=5;//延时50ms,防止数据从中间截断
                        //定位失败数据全为0
                        MappingGroup rtkMap = new MappingGroup();
                        rtkMap.rtkState = 0;   //RTK转台
@@ -503,8 +519,9 @@ public class BLEService extends Service {
                    }
                    revCount = 0;
                    //     Log.d(TAG,"蓝牙接收数据： "+bleBuf.length +" -> " +Utils.bytesToHexString(bleBuf));
-                break;
+
                }
+                   break;
                case BLE_HANDLE:
                    break;
                case BLE_MASTER:

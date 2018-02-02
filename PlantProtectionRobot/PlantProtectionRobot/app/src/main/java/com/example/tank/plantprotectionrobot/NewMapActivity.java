@@ -34,6 +34,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -61,7 +62,7 @@ import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.
 import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.getMappingData;
 import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.getMappingHead;
 import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.getMappingLength;
-import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.setMappingDataAll;
+import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.saveMappingDataAll;
 import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.setMappingLength;
 import static com.example.tank.plantprotectionrobot.DataProcessing.PermisionUtils.initLocationPermission;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getDouble;
@@ -81,6 +82,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     Button saveBtn;
     Button eraseBtn;
     Button moveCenterBtn;
+
+    TextView textView1;//提示文本
+    TextView textView2;//全屏比例尺
+    LinearLayout linearLayout;//标题栏
     MapView mapView;
     private boolean isGpsEnabled;
     private String locateType;
@@ -120,18 +125,21 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private GpsPoint touchPoint = new GpsPoint();
     //擦除模式当前位置
     private GpsPoint psonPoint = new GpsPoint();
-    private final int NEAR_DIS = 4;//判断点是否重合距离，单位米
+    private final double NEAR_DIS = 0.5;//判断点是否重合距离，单位米
     private final int MAPMAX_DIS = 5000;//地图最大距离单位米
     private final int GPS_DIS = 111000;//纬度1度的距离，单位米
     //基站坐标
     private GpsPoint bPoint = new GpsPoint();
 
+    private boolean firstInit = true;//第一次进程序
+
+
     //地图显示偏移坐标
     private GpsPoint mvPoint = new GpsPoint();
     private GpsPoint mvPointO = new GpsPoint();
     //比例尺参数
-    private  float ratio = 1;
-    private  float ratioO = 1;
+    private  float ratio = 100;
+    private  float ratioO = 100;
     private final int RATIO_MIN=1;
     private final int RATIO_MAX=1000;
     //计算滑动距离
@@ -142,7 +150,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private Handler handler;
     private Timer timer;
 
-    private float number=0;
 
     //测绘擦除状态 false表示字测绘运行，true表示正在擦除
     private boolean detMapping;
@@ -172,7 +179,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         saveBtn = (Button)findViewById(R.id.button2);
         exitBtn = (Button)findViewById(R.id.button3);
         moveCenterBtn=(Button)findViewById(R.id.button4);
+        textView1 = (TextView)findViewById(R.id.textView1);
+        textView2 = (TextView)findViewById(R.id.textView2);
         mapView = (MapView)findViewById(R.id.mapView);
+        linearLayout =(LinearLayout)findViewById(R.id.linearLayout1);
         mapView.setOnTouchListener(this);
 
         //开启蓝牙Service
@@ -232,6 +242,36 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
      * 设置控件监听
      */
     private void setOnClick(){
+
+        //测量控件高度监听函数
+        mapView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+
+            //此函数只要有变化就会被触发
+            @Override
+            public void onGlobalLayout() {
+                //       Log.e("Tank001", mapView.getMeasuredWidth() + "==" + mapView.getMeasuredHeight());
+                screenPoint.x = mapView.getMeasuredWidth();
+                screenPoint.y = mapView.getMeasuredHeight();
+
+                //加载主干道数据
+                if(firstInit == true) {
+                    if (mListPointM.size() == 0) {
+                        readMappingFromSD();
+                    }
+                    firstInit = false;
+                    mvPoint.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
+                    mvPointO.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
+                    mapView.InitView(mvPoint,ratioO);
+                }
+
+             //   Log.d(TAG,"函数被触发");
+          //      mvPoint.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
+         //       mvPointO.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
+         //       mapView.InitView(mvPoint,ratio);
+
+            }
+        });
+
         eraseBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -239,9 +279,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                 detMapping =true;
                 eraseBtn.setVisibility(View.INVISIBLE);
                 saveBtn.setText("确认");
+                textView1.setText("擦除路径");
                 if(mListPointL.size()>1) {
-                     touchPoint.x = mListPointL.get(mListPointL.size()-1).x;
-                     touchPoint.y = mListPointL.get(mListPointL.size()-1).y;
+                     touchPoint.x = mListPointL.get(0).x;
+                     touchPoint.y = mListPointL.get(0).y;
                      detFlag = mListPointL.size() - 1;
                 }
                 //停止播放音乐
@@ -273,6 +314,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         binder.unconnectBle();
                         //关闭音乐
                         binder.playmusic(false);
+                        Log.d(TAG,"退出测绘，关闭蓝牙连接");
                     }
                     startActivity(centerCtr);
                 }
@@ -290,10 +332,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                     //保存测绘类型
                     String mappingType = setinfo.getString("MappingType", "L_");
                     //   Log.d("debug001",fileDir +mappingType);
-                    Log.d("debug001", "测绘点数：" + mappingList.size());
+                    Log.d(TAG, "测绘点数：" + mappingList.size());
 
                     if (mappingList.size() > 0) {
-                        setMappingDataAll(mappingList, mappingList.size(),bPoint,fileDir, mappingType);
+                        saveMappingDataAll(mappingList,bPoint,fileDir, mappingType);
                         //     setMappingLength(fileDir,mappingType,1010);
                         finish();
                     } else {
@@ -309,8 +351,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
                 }else{
                     if(mListPointL.size()>1) {
-                        if (Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < ((double) NEAR_DIS * screenPoint.x / MAPMAX_DIS)
-                                && Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < ((double) NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
+                        if (Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < (NEAR_DIS * screenPoint.x / MAPMAX_DIS)
+                                && Math.abs(psonPoint.y - mListPointL.get(detFlag).y) < ( NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
                             ArrayList<GpsPoint> pl = new ArrayList<GpsPoint>();
                             ArrayList<MappingGroup> ml = new ArrayList<MappingGroup>();
 
@@ -376,24 +418,15 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         screenPoint = new Point();
 
 
+        textView2.setText(""+5000/ratioO+"米");
+
+
         screenPoint.x = 0;
         screenPoint.y = 0;
-        //测量控件高度监听函数
-        mapView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-
-            @Override
-            public void onGlobalLayout() {
-         //       Log.e("Tank001", mapView.getMeasuredWidth() + "==" + mapView.getMeasuredHeight());
-                screenPoint.x = mapView.getMeasuredWidth();
-                screenPoint.y = mapView.getMeasuredHeight();
-                mvPoint.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
-                mvPointO.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
-            }
-        });
 
         bPoint.set((double) setinfo.getLong("basicRTK.X", 0)/10000000000l,(double) setinfo.getLong("basicRTK.Y", 0)/10000000000l,0,0);
 
-        Log.d("Tank001","经度："+bPoint.x+" 纬度：\n"+bPoint.y);
+   //     Log.d(TAG,"经度："+bPoint.x+" 纬度：\n"+bPoint.y);
 
         //touchPoint = mListPoint1.get(mListPoint1.size()-1);类传递是传递指针
         if(mListPointL.size()>1) {
@@ -407,10 +440,53 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         }
 
         detMapping = false;
-        mapView.InitView(mvPoint,ratio);
+
 
     }
 
+    /***
+     * 读取主干道测绘数据
+     */
+    private void readMappingFromSD(){
+
+        String mappingType = setinfo.getString("MappingType", "L_");
+   //     Log.d(TAG,"测试果园数据" + mappingType);
+        //如果是测绘果园路径，则要显示主干道信息
+        if(mappingType.equals("L_")){
+
+            //获取文件路径
+            String UserFileUsing = setinfo.getString("UserFileUsing",null);
+            String filedir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
+
+            File[] files = getMappingList(filedir);
+            int[] len=new int[2];
+
+            if(files != null ) {
+                GpsPoint bpoint=new GpsPoint();
+
+                ArrayList<MappingGroup> gpslist = new ArrayList<MappingGroup>();
+                getMappingHead(filedir+File.separator+files[0].getName(),len,bpoint);
+
+                getMappingData(filedir+File.separator+files[0].getName(),gpslist,len[0]);
+
+                //当前默认只有一个主干道
+                Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
+
+                for(int j=0;j<gpslist.size();j++){
+                    GpsPoint point=new GpsPoint();
+                    //转化为画布坐标
+                    point.x = screenPoint.x/2+(gpslist.get(j).longitude*Math.cos(gpslist.get(j).latitude * Math.PI / 180) - bPoint.x*Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                    point.y = screenPoint.y/2+(bPoint.y -gpslist.get(j).latitude) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
+                    //       point.d = gpslist.get(j).direction;
+                    mListPointM.add(point);
+                    //      Log.d(TAG, "测绘点:"+point.x +" "+point.y+" "+point.z);
+                    //      Log.d("Tank001", "显示 RTK状态：" + gpslist.get(j).rtkState + "时间：" + gpslist.get(j).GPSTime_tow + "经度：" + gpslist.get(j).longitude
+                    //               + "纬度：" + gpslist.get(j).latitude + "海拔：" + gpslist.get(j).altitude + "方向：" + gpslist.get(j).direction+"\n");
+                }
+
+            }
+        }
+    }
     /***
      * 初始高德地图
      */
@@ -474,13 +550,18 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         touchPoint.x = (event.getX()-mvPointO.x)/ratioO;
                         touchPoint.y = (event.getY()-mvPointO.y)/ratioO;
 
+                   //     Log.d(TAG,"长按触发");
+
                         for(int i=(mListPointL.size()-1);i>0;i--){
 
-                            //查找最近的点删除
-                            if(Math.abs(event.getX()-mvPointO.x - mListPointL.get(i).x*ratioO) < 5*ratioO &&
-                                    Math.abs(event.getY()-mvPointO.y - mListPointL.get(i).y*ratioO)  < 5*ratioO ){
-                                detFlag = i;
+                   //         Log.d(TAG," "+Math.abs(touchPoint.x  - mListPointL.get(i).x) +" "+(double)NEAR_DIS * screenPoint.x / MAPMAX_DIS
+                    //        + " "+Math.abs(touchPoint.y  - mListPointL.get(i).y) +" "+ ((double) NEAR_DIS * screenPoint.y / MAPMAX_DIS)+"\n");
 
+                                //查找最近的点删除
+                            if (Math.abs(touchPoint.x  - mListPointL.get(i).x) < (NEAR_DIS * screenPoint.x / MAPMAX_DIS)
+                                    && Math.abs(touchPoint.y  - mListPointL.get(i).y) < ( NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
+
+                                detFlag = i;
                                 break;
                             }
                         }
@@ -502,7 +583,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                 if(screenPoint.x !=0) {
 
                     if (2 == touchMode) {
-
                         endDis = distance(event);
                         if (endDis != 0 && startDis != 0) {
 
@@ -538,30 +618,33 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
                                     ratio = RATIO_MIN;
                                     ratioO = RATIO_MIN;
-                                    mvPointO.x = 0;
-                                    mvPointO.y = 0;
+                                  mvPointO.x = 0;
+                                   mvPointO.y = 0;
                                 }
                             }
 
-                            mvPoint.x = (midPoint.x * (ratioO - ratio) + mvPointO.x * ratio) / ratioO;
-                            mvPoint.y = (midPoint.y * (ratioO - ratio) + mvPointO.y * ratio) / ratioO;
+                            mvPoint.x = midPoint.x - ((midPoint.x -mvPointO.x)/ratioO)*ratio;
+                            mvPoint.y = midPoint.y - ((midPoint.y -mvPointO.y)/ratioO)*ratio;
+
+                    //        Log.d(TAG," "+mvPoint.x + " "+mvPoint.y+"\n");
+
                    //         Log.d(TAG,"放大倍数："+ratio+"x偏移："+mvPoint.x+"y偏移："+mvPoint.y);
                             ratioO = ratio;
                             startDis = endDis;
-                            //    mvPointO = mvPoint;
+
                             mvPointO.x = mvPoint.x;
                             mvPointO.y = mvPoint.y;
 
+                            textView2.setText(""+(int)((5000/ratioO)+0.5)+"米");
+
                         }
                     } else if(1 == touchMode){
+
                         //判断手指是否滑动
                         if (Math.abs(startPoint.x - event.getX()) > 20
                                 && Math.abs(startPoint.y - event.getY()) > 20) {
                             touchDet = 0;
                         }
-
-                  //      mvPoint.x = mvPointO.x + (1 - ratioO) * (startPoint.x - event.getX());
-                 //       mvPoint.y = mvPointO.y + (1 - ratioO) * (startPoint.y - event.getY());
 
                         mvPoint.x = mvPointO.x + event.getX() - startPoint.x;
                         mvPoint.y = mvPointO.y + event.getY() - startPoint.y;
@@ -579,9 +662,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         } else if (mvPoint.y > 0) {
                             mvPoint.y = 0;
                         }
-                        //    mvPointO = mvPoint;
+
                         mvPointO.x = mvPoint.x;
                         mvPointO.y = mvPoint.y;
+                    //    Log.d(TAG,"滑动触发");
 
                     }
                 }
@@ -594,6 +678,16 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                 if(startDis>50f)
                 {
                     midPoint = midPoint(event);
+                  //
+                    /*
+                    PointF mP = new PointF();
+                    mP = midPoint(event);
+                    midPoint.x = (float) ((mP.x-mvPointO.x)/ratioO);
+                    midPoint.y = (float) ((mP.y-mvPointO.y)/ratioO);
+                    */
+             //       Log.d(TAG," "+midPoint.x + " "+midPoint.y+"\n");
+
+
                 }
                 break;
 
@@ -618,7 +712,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         return new PointF(midX,midY);
     }
 
-
     Handler bleHandler = new Handler() {
         public void handleMessage(android.os.Message msg) {
             //在handler中更新UI
@@ -636,18 +729,19 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         //默认基站在画布中心，测绘点的位置是相对于基站的位置
                         moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position));
                         GpsPoint gpsPoint = new GpsPoint();
-                        gpsPoint.x = screenPoint.x / 2 + (rtkMap.longitude * Math.cos(rtkMap.latitude * Math.PI / 180) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                        gpsPoint.x = screenPoint.x / 2+ (rtkMap.longitude * Math.cos(rtkMap.latitude * Math.PI / 180) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
                         //     gpsPoint.y = screenPoint.y/2+(rtkMap.latitude - bPoint.y) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
                         //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
                         gpsPoint.y = screenPoint.y / 2 + (bPoint.y - rtkMap.latitude) * ((double) screenPoint.y * GPS_DIS / MAPMAX_DIS);
+
                         gpsPoint.d = rtkMap.direction;
 
-                        psonPoint.x = gpsPoint.x * ratioO;
-                        psonPoint.y = gpsPoint.y * ratioO;
+                        psonPoint.x = gpsPoint.x;
+                        psonPoint.y = gpsPoint.y;
                         psonPoint.d = gpsPoint.d;
 
-                        //         Log.d(TAG,"X坐标："+psonPoint.x+" Y坐标"+psonPoint.y);
 
+                        //         Log.d(TAG,"X坐标："+psonPoint.x+" Y坐标"+psonPoint.y)
                         if (false == detMapping && screenPoint.x != 0) {
 
                             mappingList.add(rtkMap);
@@ -655,13 +749,12 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                             detFlag = mListPointL.size() - 1;
                         } else {
                             //与起点重合
-
                             //   if(Math.abs(psonPoint.x-mListPointL.get(mListPointL.size()-1).x)<((double)NEAR_DIS*screenPoint.x/MAPMAX_DIS)
                             //           && Math.abs(psonPoint.x-mListPointL.get(mListPointL.size()-1).x)<((double)NEAR_DIS*screenPoint.y/MAPMAX_DIS)) {
                             //    }
                             //与删除点重合
-                            if (Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < ((double) NEAR_DIS * screenPoint.x / MAPMAX_DIS)
-                                    && Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < ((double) NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
+                            if (Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < ( NEAR_DIS * screenPoint.x / MAPMAX_DIS)
+                                    && Math.abs(psonPoint.y - mListPointL.get(detFlag).y) < (NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
 
                                 //手机振动
                                 VibratorUtil.Vibrate(NewMapActivity.this, 1000);
@@ -678,10 +771,14 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                     }
                     break;
                 case BLE_CONNECT_OFF:
-                    Toast.makeText(getApplication(), "测绘杆连接断开" ,
-                            Toast.LENGTH_SHORT).show();
+                  textView1.setText("信号丢失");
+                  linearLayout.setBackgroundColor(getResources().getColor(R.color.colorRed));
+                //    Toast.makeText(getApplication(), "测绘杆连接断开" ,
+                //            Toast.LENGTH_SHORT).show();
                     break;
                 case BLE_CONNECT_ON:
+                    textView1.setText("擦除路径");
+                    linearLayout.setBackgroundColor(getResources().getColor(R.color.tankgreen));
                     break;
             }
 
@@ -699,7 +796,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
             // IBinder service为onBind方法返回的Service实例
             binder = (BLEService.BleBinder) service;
-
 
             //开启
             if(binder !=null)
@@ -723,7 +819,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                     msg.obj = rtkMap;
                     bleHandler.sendMessage(msg);
                     //发送通知
-                //    bleHandler.obtainMessage(BLE_DATA_ON,data.length,-1,data).sendToTarget();
                 }
                 //BLE状态变化
                 @Override
@@ -759,52 +854,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         //绑定蓝牙服务后台
         bindBleSerive();
 
-
-
-        //加载主干道数据
-        String mappingType = setinfo.getString("MappingType", "L_");
-        //如果是测绘果园路径，则要显示主干道信息
-        if(mappingType.equals("L_")){
-            //获取文件路径
-            String UserFileUsing = setinfo.getString("UserFileUsing",null);
-            String filedir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
-
-            File[] files = getMappingList(filedir);
-            int[] len=new int[2];
-            GpsPoint point=new GpsPoint();
-            if(files != null ) {
-                ArrayList<MappingGroup> gpslist = new ArrayList<MappingGroup>();
-                getMappingHead(filedir+File.separator+files[0].getName(),len,point);
-
-                getMappingData(filedir+File.separator+files[0].getName(),gpslist,len[0]);
-
-                //当前默认只有一个主干道
-                Log.d("debug001", files[0].getName() +" 帧长："+len[0]+" 基站坐标："+point.x+" "+point.y+ "测绘点个数："+ gpslist.size()+"\n");
-
-                for(int j=0;j<gpslist.size();j++){
-
-                    //转化为画布坐标
-                    point.x = gpslist.get(j).longitude;
-                    point.y =gpslist.get(j).latitude;
-                    point.d =gpslist.get(j).direction;
-
-                    point.x = screenPoint.x/2+(gpslist.get(j).longitude*Math.cos(gpslist.get(j).latitude * Math.PI / 180) - bPoint.x*Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                    //     gpsPoint.y = screenPoint.y/2+(rtkMap.latitude - bPoint.y) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
-                    //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                    point.y = screenPoint.y/2+(bPoint.y -gpslist.get(j).latitude) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
-                    point.d = gpslist.get(j).direction;
-
-                    psonPoint.x=point.x*ratioO;
-                    psonPoint.y=point.y*ratioO;
-                    psonPoint.d=point.d;
-
-                    mListPointM.add(point);
-
-                }
-
-            }
-        }
-
         super.onStart();
     }
 
@@ -813,7 +862,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
         if(binder !=null){
             binder.playmusic(false);
-            binder.unconnectBle();
+
         }
         //解除蓝牙服务后台绑定绑定
         unbindService(bleServiceConn);

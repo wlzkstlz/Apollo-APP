@@ -143,7 +143,8 @@ public class MappingGroup {
                 for(int i=0;i<rLen;i++){
                         //保存结果
                     gpslist.add(ByteToArrayMappingGroup(buf,GPS_LEN +GPS_BAC_LEN  +i*GPS_GROUP_LENGTH));
-
+              //          Log.d("Tank001", "读取 RTK状态：" + gpslist.get(gpslist.size()-1).rtkState + "时间：" + gpslist.get(gpslist.size()-1).GPSTime_tow + "经度：" + gpslist.get(gpslist.size()-1).longitude
+               //                + "纬度：" + gpslist.get(gpslist.size()-1).latitude + "海拔：" + gpslist.get(gpslist.size()-1).altitude + "方向：" + gpslist.get(gpslist.size()-1).direction+"\n");
                 }
             }else{
                 return false;
@@ -217,9 +218,9 @@ public class MappingGroup {
      * @param gpslist 需要写入的数据
      * @param off     数据帧偏移地址，帧头是帧长，即是4byte。
      */
-    public static void setMappingData(ArrayList<MappingGroup> gpslist,int len,int off,String wrieFile,String mType){
-        byte[] wdata = new byte[len*GPS_GROUP_LENGTH];
-        for(int i=0;i<len;i++){
+    public static void saveMappingData(ArrayList<MappingGroup> gpslist,int len,int off,String wrieFile,String mType){
+        byte[] wdata = new byte[gpslist.size()*GPS_GROUP_LENGTH];
+        for(int i=0;i<gpslist.size();i++){
             MappingGroupToArray(gpslist.get(i),wdata,off+GPS_GROUP_LENGTH*i);
         }
         //追加写入
@@ -231,22 +232,24 @@ public class MappingGroup {
      * 一次性写入数据
      *
      * @param gpslist 需要写入的数据
-     * @param len     测绘数据帧长
      */
-    public static void setMappingDataAll(ArrayList<MappingGroup> gpslist,int len,GpsPoint bPoint,String wrieFile,String mType){
+    public static void saveMappingDataAll(ArrayList<MappingGroup> gpslist,GpsPoint bPoint,String wrieFile,String mType){
         int off=0;
-       byte[] wdata = new byte[ GPS_LEN+len*GPS_GROUP_LENGTH];
+       byte[] wdata = new byte[ GPS_LEN+GPS_BAC_LEN+gpslist.size()*GPS_GROUP_LENGTH];
        //填入帧长数据
-        putInt(wdata,len,off);
+        putInt(wdata,gpslist.size(),off);
         //填入基站数据
         off = off+GPS_LEN;
         putDouble(wdata,bPoint.x,off);
-        off = off+GPS_LEN+GPS_BAC_LEN/2;
+        off = off+8;
         putDouble(wdata,bPoint.y,off);
         //填入测绘数据
-        off = off+GPS_LEN+ GPS_BAC_LEN;
-        for(int i=0;i<len;i++){
+        off = off+ 8;
+        for(int i=0;i<gpslist.size();i++){
             MappingGroupToArray(gpslist.get(i),wdata,off+GPS_GROUP_LENGTH*i);
+       //     Log.d("Tank001", "写入 RTK状态：" + gpslist.get(i).rtkState + "时间：" + gpslist.get(i).GPSTime_tow + "经度：" + gpslist.get(i).longitude
+       //             + "纬度：" + gpslist.get(i).latitude + "海拔：" + gpslist.get(i).altitude + "方向：" + gpslist.get(i).direction+"\n");
+
         }
 
         //写入文件，不追加，会创建新文件

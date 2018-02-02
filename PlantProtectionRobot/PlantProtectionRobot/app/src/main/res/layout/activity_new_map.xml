@@ -84,4 +84,15 @@
 
         app:layout_constraintStart_toStartOf="parent" />
 
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="5Km"
+        app:layout_constraintStart_toEndOf="@+id/button4"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginBottom="15dp"
+        tools:layout_editor_absoluteY="531dp" />
+
 </android.support.constraint.ConstraintLayout>

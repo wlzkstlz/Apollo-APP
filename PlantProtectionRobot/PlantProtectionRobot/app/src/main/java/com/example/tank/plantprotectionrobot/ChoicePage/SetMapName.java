@@ -83,6 +83,7 @@ public class SetMapName extends Fragment{
                 if(onFragmentClickListener !=null) {
                     onFragmentClickListener.onFragmentClick(btn);
                 }
+
 /*
                 if (TextUtils.isEmpty(userName))
                 {
@@ -123,9 +124,9 @@ public class SetMapName extends Fragment{
                     }
 
                 }
-*/
-    //            Log.d("debug001",provinceName+countyName+cityName+cityName+twonName+userName+phoneNumner);
 
+    //            Log.d("debug001",provinceName+countyName+cityName+cityName+twonName+userName+phoneNumner);
+*/
 
             }
         });
