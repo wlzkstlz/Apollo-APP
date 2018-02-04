@@ -149,12 +149,18 @@ class MapView extends View {
 
         }else if(2 == drawNumber){
 
+            matrix.reset();
+            matrix.postRotate((float) Lcon2.d,(int)(bMap2.getWidth()/2),(int)(bMap2.getHeight()/2));
+            matrix.postTranslate((int)(mapRatio*Lcon2.x-bMap2.getWidth()/2),(int)(mapRatio*Lcon2.y-bMap2.getHeight()/2));
+            canvas.drawBitmap(bMap2, matrix, new Paint());
+
             //测绘模式1
             matrix.reset();
             matrix.postRotate((float) Lcon1.d,(int)(bMap1.getWidth()/2),(int)(bMap1.getHeight()/2));
             matrix.postTranslate((int)(mapRatio*Lcon1.x-bMap1.getWidth()/2),(int)(mapRatio*Lcon1.y-bMap1.getHeight()/2));
             canvas.drawBitmap(bMap1, matrix, new Paint());
          //   canvas.drawBitmap(bMap1, (int)(mapRatio*Lcon1.x-bMap1.getWidth()/2), (int)(mapRatio*Lcon1.y-bMap1.getHeight()/2), new Paint());
+
 
         }else if(3 == drawNumber){
 
@@ -199,14 +205,16 @@ class MapView extends View {
 
     /**
      */
-    public void setLinePoint2(ArrayList<GpsPoint> list1, ArrayList<GpsPoint> list3,GpsPoint point,GpsPoint mvPoint,float ratio)
+    public void setLinePoint2(ArrayList<GpsPoint> list1, ArrayList<GpsPoint> list3,GpsPoint point1,GpsPoint point2,GpsPoint mvPoint,float ratio)
     {
         mListPoint =list1;
         mListPoint1.clear();
         mListPoint2 =list3;
 
-        Lcon1 = point;
+        Lcon1 = point1;
+        Lcon2 = point2;
         movePoint = mvPoint;
+
         drawNumber =2;
         mapRatio = ratio;
         invalidate();

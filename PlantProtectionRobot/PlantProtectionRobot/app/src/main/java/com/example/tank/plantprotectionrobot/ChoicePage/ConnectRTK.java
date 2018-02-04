@@ -165,7 +165,7 @@ public class ConnectRTK extends Fragment {
                         if(mBleDeviceList.size() > 0) {
                             //停止扫描蓝牙
                             binder.stopScanBle();
-                            binder.connectBle(mBleDeviceList.get(i));
+                            binder.connectBle(mBleDeviceList.get(i),false);
 
                         }else {
                             binder.startScanBle();
@@ -204,14 +204,12 @@ public class ConnectRTK extends Fragment {
             @Override
             public void onClick(View view) {
                 //   Log.d("debug001",MappingRodNumber+MappingType);
-            //    if(ble_connectFlag == true) {
-                if(ble_connectFlag == false) {
+               if(ble_connectFlag == true) {
                     //保存测绘类型
                     if (editText1.getText().toString().equals("")) {
                         bPoint.x = 113.894753;
                     } else {
                         bPoint.x = Double.parseDouble(editText1.getText().toString());
-                        ;
                     }
                     if (editText1.getText().toString().equals("")) {
                         bPoint.y = 22.958744;

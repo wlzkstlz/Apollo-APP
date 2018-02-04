@@ -79,12 +79,12 @@ public class SetMapName extends Fragment{
 
                 userName = ","+userET.getText().toString();
                 phoneNumner = phoneET.getText().toString();
-
+/*
                 if(onFragmentClickListener !=null) {
                     onFragmentClickListener.onFragmentClick(btn);
                 }
+*/
 
-/*
                 if (TextUtils.isEmpty(userName))
                 {
                     Toast.makeText(getActivity().getApplicationContext(), "请输入用户名",
@@ -126,7 +126,6 @@ public class SetMapName extends Fragment{
                 }
 
     //            Log.d("debug001",provinceName+countyName+cityName+cityName+twonName+userName+phoneNumner);
-*/
 
             }
         });

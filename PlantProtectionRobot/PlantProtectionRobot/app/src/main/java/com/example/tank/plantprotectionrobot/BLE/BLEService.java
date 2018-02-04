@@ -81,9 +81,6 @@ public class BLEService extends Service {
     private int bleWorkTpye =0;
 
 
-    //音乐播放
-    private MediaPlayer mediaPlayer;
-
     // 必须实现的方法，用于返回Binder对象
     @Override
     public IBinder onBind(Intent intent) {
@@ -118,20 +115,36 @@ public class BLEService extends Service {
         //断开蓝牙连接
         public void unconnectBle()
         {
-            mBLE.disconnect();
-            mBLE.close();
+            if(mBLE !=null) {
+                mBLE.disconnect();
+                mBLE.close();
+                isConnectedBle=null;
+            }
         }
         //开始连接蓝牙
-        public boolean connectBle(BluetoothDevice bluetoothDevice){
+
+        /***
+         *
+         * @param bluetoothDevice
+         * @param connetType 连接类型，true 表示掉线重连接 fale 重新连接新地址
+         * @return
+         */
+        public boolean connectBle(BluetoothDevice bluetoothDevice,boolean connetType){
             if(mBluetoothAdapter !=null) {
-                if (mBluetoothAdapter.checkBluetoothAddress(bluetoothDevice.getAddress())) {
-                    mBLE.connect(bluetoothDevice.getAddress());
+                if ( connetType == false) {
+                    if (mBluetoothAdapter.checkBluetoothAddress(bluetoothDevice.getAddress())) {
 
-                    isConnectedBle = bluetoothDevice;
-
-                    Log.d(TAG, "连接蓝牙：" + bluetoothDevice.toString());
-                } else {
-                    return false;
+                        mBLE.connect(bluetoothDevice.getAddress());
+                        isConnectedBle = bluetoothDevice;
+                        Log.d(TAG, "连接蓝牙：" + bluetoothDevice.toString());
+                    } else {
+                        return false;
+                    }
+                }else {
+                    //若参数
+                    if(isConnectedBle !=null){
+                        mBLE.connect(isConnectedBle.getAddress());
+                    }
                 }
             }else{
                 return false;
@@ -139,30 +152,6 @@ public class BLEService extends Service {
             return true;
         }
 
-        /***
-         *  播放音乐
-         * @param play 播放音乐标志
-         * @return 播放货关闭成功
-         */
-        public boolean playmusic(boolean play){
-
-            if(play == true) {
-                if (mediaPlayer == null) {
-                    mediaPlayer = new MediaPlayer();
-                }
-                mediaPlayer = MediaPlayer.create(BLEService.this, R.raw.startmusic);
-                //开始播放
-                mediaPlayer.start();
-                //是否循环播放
-                mediaPlayer.setLooping(true);
-            }else{
-                if (mediaPlayer != null) {
-                    mediaPlayer.stop();
-                }
-            }
-
-            return true;
-        }
 
         /***
          *
@@ -414,9 +403,9 @@ public class BLEService extends Service {
         public void onDisconnect(BluetoothGatt gatt) {
             Log.i(TAG,gatt.getDevice().getAddress()+":连接断开");
             msgWhat = BLE_CONNECT_OFF ;
-            mBLE.close();
+        //    mBLE.close();
             mCharacteristic = null;
-            isConnectedBle=null;
+      //      isConnectedBle=null;
 
         }
     };
@@ -452,7 +441,7 @@ public class BLEService extends Service {
         public void onCharacteristicRevice(BluetoothGatt gatt,
                                            BluetoothGattCharacteristic characteristic) {
 
-              Log.d(TAG,"蓝牙数据帧： "+characteristic.getValue().length +" -> " +Utils.bytesToHexString(characteristic.getValue()));
+             Log.d(TAG,"蓝牙数据帧： "+characteristic.getValue().length +" -> " +Utils.bytesToHexString(characteristic.getValue()));
 
            switch (bleWorkTpye) {
                case BLE_MAPPING:
