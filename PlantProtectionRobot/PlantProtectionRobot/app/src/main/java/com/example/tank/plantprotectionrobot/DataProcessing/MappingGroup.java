@@ -8,9 +8,11 @@ import java.io.File;
 import java.util.ArrayList;
 
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getDouble;
+import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getFloat;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getInt;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getShort;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.putDouble;
+import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.putFloat;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.putInt;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.putShort;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.readFileFromSDCard;
@@ -25,35 +27,47 @@ public class MappingGroup {
 
        //测绘信息
         public   byte rtkState;   //RTK_SINGLE=0,RTK_FLOAT=1,RTK_FIX=2,
-        public   double longitude;//角度制
-        public   double latitude;//角度制
-        public   double altitude;//单位米
-        public   double direction;//角度制
-        public   short GPSTime_wn;//GPS周数
-        public   int GPSTime_tow;//周内毫秒数
-        public static final int GPS_GROUP_LENGTH = 39; //测绘信息组一帧数据byte长度
+        public   int longitude;//弧度制，毫弧
+        public   int latitude;//角度制
+        public   float altitude;//单位米
+        public   float roll; //IMU
+        public   float pitch; //IMU
+        public   float yaw;//角度制
+        public   short GPSTime_weeks;//GPS周数
+        public   int GPSTime_ms;//周内毫秒数
+
+        public static final int GPS_GROUP_LENGTH = 31; //测绘信息组一帧数据byte长度
         public static final int GPS_BAC_LEN = 16; //基站数据长度
-       public static final int GPS_LEN= 4; //帧长节数
+        public static final int GPS_LEN= 4; //帧长节数
+        public static final double INM_LON_LAT_SCALE  =100000000.0;//经纬度转换成定点小数的比例系数
+        public static final double PI = 3.14159265358;//经纬度转换成定点小数的比例系数
+
+
 
     /***
      *
-     * @param rtkState
-     * @param longitude
-     * @param latitude
-     * @param altitude
-     * @param direction
-     * @param GPSTime_wn
-     * @param GPSTime_tow
+     * @param rtkState RTK状态
+     * @param longitude 经度
+     * @param latitude 纬度
+     * @param altitude 海拔
+     * @param roll IMU
+     * @param pitch IMU
+     * @param yaw  方向
+     * @param GPSTime_weeks
+     * @param GPSTime_ms
      */
-    public void setMappingParam(byte rtkState,double longitude,double latitude,double altitude,double direction
-    ,short GPSTime_wn,int GPSTime_tow){
+    public void setMappingParam(byte rtkState,int longitude,int latitude,float altitude,float roll,float pitch,float yaw
+    ,short GPSTime_weeks,int GPSTime_ms){
         this.rtkState = rtkState;
         this.longitude=longitude;
         this.latitude=latitude;
         this.altitude =altitude;
-        this.direction=direction;
-        this.GPSTime_wn=GPSTime_wn;
-        this.GPSTime_tow =GPSTime_tow;
+        this.roll = roll;
+        this.pitch =pitch;
+        this.yaw=yaw;
+        this.GPSTime_weeks=GPSTime_weeks;
+        this.GPSTime_ms =GPSTime_ms;
+
     }
 
     /***
@@ -70,18 +84,22 @@ public class MappingGroup {
         //GPS状态
         gpsArray[count] = gps.rtkState;
         count=count+1;
-        putDouble(gpsArray, gps.longitude,count); //经度
+        putInt(gpsArray, gps.longitude,count); //经度
 
-        count=count+8;
-        putDouble(gpsArray, gps.latitude,count); //纬度
-        count=count+8;
-        putDouble(gpsArray, gps.altitude,count);//海拔
-        count=count+8;
-        putDouble(gpsArray, gps.direction,count);//方向
-        count=count+8;
-        putShort(gpsArray, gps.GPSTime_wn,count);//GPS周数
+        count=count+4;
+        putInt(gpsArray, gps.latitude,count); //纬度
+        count=count+4;
+        putFloat(gpsArray, gps.altitude,count);//海拔
+        count=count+4;
+        putFloat(gpsArray, gps.roll,count);//
+        count=count+4;
+        putFloat(gpsArray, gps.pitch,count);//
+        count=count+4;
+        putFloat(gpsArray, gps.yaw,count);//方向
+        count=count+4;
+        putShort(gpsArray, gps.GPSTime_weeks,count);//GPS周数
         count=count+2;
-        putInt(gpsArray, gps.GPSTime_tow,count);//周内毫秒数
+        putInt(gpsArray, gps.GPSTime_ms,count);//周内毫秒数
 
         return true;
     }
@@ -98,17 +116,21 @@ public class MappingGroup {
         //GPS状态
         mappingGroup.rtkState = array[count];
         count=count+1;
-        mappingGroup.longitude = getDouble(array,count);
-        count=count+8;
-        mappingGroup.latitude = getDouble(array,count);
-        count=count+8;
-        mappingGroup.altitude = getDouble(array,count);
-        count=count+8;
-        mappingGroup.direction = getDouble(array,count);
-        count=count+8;
-        mappingGroup.GPSTime_wn = getShort(array,count);
+        mappingGroup.longitude = getInt(array,count);
+        count=count+4;
+        mappingGroup.latitude = getInt(array,count);
+        count=count+4;
+        mappingGroup.altitude = getFloat(array,count);
+        count=count+4;
+        mappingGroup.roll = getFloat(array,count);
+        count=count+4;
+        mappingGroup.pitch = getFloat(array,count);
+        count=count+4;
+        mappingGroup.yaw = getFloat(array,count);
+        count=count+4;
+        mappingGroup.GPSTime_weeks = getShort(array,count);
         count=count+2;
-        mappingGroup.GPSTime_tow = getInt(array,count);
+        mappingGroup.GPSTime_ms = getInt(array,count);
 
         /*
         Log.d("debug001",

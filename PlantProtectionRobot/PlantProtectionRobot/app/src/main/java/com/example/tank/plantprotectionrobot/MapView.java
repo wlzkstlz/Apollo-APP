@@ -10,6 +10,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Point;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 
 import java.util.ArrayList;
@@ -46,6 +47,7 @@ class MapView extends View {
     private Paint mPaint2 = new Paint();  //绘制主干道
     private GpsPoint Lcon1 = new GpsPoint();    //
     private GpsPoint Lcon2 = new GpsPoint();
+    private GpsPoint basicLon = new GpsPoint();
     private GpsPoint mDet = new GpsPoint();
     private GpsPoint mPson = new GpsPoint();
     private GpsPoint movePoint = new GpsPoint();
@@ -56,6 +58,7 @@ class MapView extends View {
     private Bitmap bMap1;
     private Bitmap bMap2;
     private Bitmap bDet;
+    private Bitmap bBasic;
 
     public MapView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
@@ -139,13 +142,11 @@ class MapView extends View {
             matrix.postRotate((float) Lcon1.d,(int) (mapRatio*Lcon1.x-bMap1.getWidth()/2),(int)(mapRatio*Lcon1.y-bMap1.getHeight()/2));
             matrix.postTranslate((int) (mapRatio*Lcon1.x-bMap1.getWidth()/2),(int)(mapRatio*Lcon1.y-bMap1.getHeight()/2));
             canvas.drawBitmap(bMap1, matrix, new Paint());
-         // canvas.drawBitmap(bMap1, (int)(mapRatio*Lcon1.x-bMap1.getWidth()/2), (int)(mapRatio*Lcon1.y-bMap1.getHeight()/2), new Paint());
 
             matrix.reset();
             matrix.postRotate((float) mPson.d,(int)(mapRatio*mPson.x-bPson.getWidth()/2),(int)(mapRatio*mPson.y-bPson.getHeight()/2));
             matrix.postTranslate((int)(mapRatio*mPson.x-bPson.getWidth()/2),(int)(mapRatio*mPson.y-bPson.getHeight()/2));
             canvas.drawBitmap(bPson, matrix, new Paint());
-        //    canvas.drawBitmap(bPson, (int)(mapRatio*mPson.x-bPson.getWidth()/2), (int)(mapRatio*mPson.y-bPson.getHeight()/2), new Paint());
 
         }else if(2 == drawNumber){
 
@@ -159,7 +160,6 @@ class MapView extends View {
             matrix.postRotate((float) Lcon1.d,(int)(bMap1.getWidth()/2),(int)(bMap1.getHeight()/2));
             matrix.postTranslate((int)(mapRatio*Lcon1.x-bMap1.getWidth()/2),(int)(mapRatio*Lcon1.y-bMap1.getHeight()/2));
             canvas.drawBitmap(bMap1, matrix, new Paint());
-         //   canvas.drawBitmap(bMap1, (int)(mapRatio*Lcon1.x-bMap1.getWidth()/2), (int)(mapRatio*Lcon1.y-bMap1.getHeight()/2), new Paint());
 
 
         }else if(3 == drawNumber){
@@ -168,21 +168,21 @@ class MapView extends View {
             matrix.postRotate((float) Lcon1.d,(int)(bMap1.getWidth()/2),(int)(bMap1.getHeight()/2));
             matrix.postTranslate((int)(mapRatio*Lcon1.x-bMap1.getWidth()/2),(int)(mapRatio*Lcon1.y-bMap1.getHeight()/2));
             canvas.drawBitmap(bMap1, matrix, new Paint());
-         //   canvas.drawBitmap(bMap1, (int)(mapRatio*Lcon1.x-bMap1.getWidth()/2), (int)(mapRatio*Lcon1.y-bMap1.getHeight()/2), new Paint());
 
             matrix.reset();
            matrix.postRotate((float) Lcon2.d,(int)(bMap2.getWidth()/2),(int)(bMap2.getHeight()/2));
             matrix.postTranslate((int)(mapRatio*Lcon2.x-bMap2.getWidth()/2),(int)(mapRatio*Lcon2.y-bMap2.getHeight()/2));
             canvas.drawBitmap(bMap2, matrix, new Paint());
-         //   canvas.drawBitmap(bMap2, (int)(mapRatio*Lcon2.x-bMap2.getWidth()/2), (int)(mapRatio*Lcon2.y-bMap2.getHeight()/2), new Paint());
 
             matrix.reset();
             matrix.postTranslate((int)(mapRatio*mDet.x-bDet.getWidth()/2),(int)(mapRatio*mDet.y-bDet.getHeight()/2));
             canvas.drawBitmap(bDet, matrix, new Paint());
-     //       canvas.drawBitmap(bDet, (int)(mapRatio*mDet.x-bDet.getWidth()/2), (int)(mapRatio*mDet.y-bDet.getHeight()/2), new Paint());
-
 
         }
+
+        matrix.reset();
+        matrix.postTranslate((int)(mapRatio*basicLon.x-bBasic.getWidth()/2),(int)(mapRatio*basicLon.y-bBasic.getHeight()/2));
+        canvas.drawBitmap(bBasic, matrix, new Paint());
 
     }
 
@@ -235,16 +235,21 @@ class MapView extends View {
         drawNumber =3;
         mapRatio = ratio;
 
+
         invalidate();
     }
 
     /***
      * 使用前必须初始化
      */
-    public  void InitView(GpsPoint zero,float ratio){
+    public  void InitView(GpsPoint zero,GpsPoint bLon,float ratio){
 
         movePoint = zero; //初始偏移坐标
         mapRatio = ratio; //初始比例尺
+        basicLon.x = bLon.x/2;//基站位置
+        basicLon.y = bLon.y/2;//基站位置
+
+        //    Log.d("Tank001","基站位置"+basicLon.x+" "+bBasic.);
 
         //画笔初始化
         mPaint.setColor(Color.rgb(37, 155, 36));
@@ -256,7 +261,7 @@ class MapView extends View {
         mPaint1.setStyle(Paint.Style.STROKE);
 
         mPaint2.setColor(Color.rgb(63, 81, 181));
-        mPaint2.setStrokeWidth(8f);
+        mPaint2.setStrokeWidth(16f);
         mPaint2.setStyle(Paint.Style.STROKE);
 
 
@@ -264,6 +269,8 @@ class MapView extends View {
         bMap1 = BitmapFactory.decodeResource(getResources(), R.drawable.mapping1);
         bMap2 = BitmapFactory.decodeResource(getResources(), R.drawable.mapping2);
         bDet = BitmapFactory.decodeResource(getResources(), R.drawable.det);
+        bBasic= BitmapFactory.decodeResource(getResources(), R.drawable.basic);
     }
+
 
 }

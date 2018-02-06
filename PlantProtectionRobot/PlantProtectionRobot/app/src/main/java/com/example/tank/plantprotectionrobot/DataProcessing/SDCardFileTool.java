@@ -325,9 +325,9 @@ public class SDCardFileTool {
     public static void putInt(byte[] b,int num,int index) {
 
         b[index++] = (byte)(num );
-        b[index++] = (byte)(num >>> 8);
-        b[index++] = (byte)(num >>> 16);
-        b[index] = (byte)(num >>> 24);
+        b[index++] = (byte)(num >> 8);
+        b[index++] = (byte)(num >> 16);
+        b[index] = (byte)(num >> 24);
     }
 
     /**
@@ -345,18 +345,56 @@ public class SDCardFileTool {
     /**
      * double转换byte
      *
-     * @param bb
+     * @param b
      * @param x
      * @param index
      */
-    public static void putDouble(byte[] bb, double x, int index) {
+    public static void putDouble(byte[] b, double x, int index) {
 
-        long db = Double.doubleToLongBits(x);
-    //    Log.d("debug001","转化值："+ld+" ");
+        long d = Double.doubleToLongBits(x);
         for (int i = 0; i < 8; i++) {
-            bb[index + i] = (byte)((db >> 8 * i) & 0xff);
+            b[index + i] = (byte)((d >> 8 * i) & 0xff);
         }
 
+    }
+
+    /**
+     * 通过byte数组取得Double
+     *
+     * @param b
+     * @param index
+     * @return
+     */
+    public static double getDouble(byte[] b, int index) {
+        long d;
+        d = b[index++] & 0xff;
+        d |= ((long) b[index++] << 8) & 0xffff;
+        d |= ((long) b[index++] << 16) & 0xffffff;;
+        d |= ((long) b[index++] << 24) & 0xffffffffl;
+        d |= ((long) b[index++] << 32) & 0xffffffffffl;
+        d |= ((long) b[index++] << 40) & 0xffffffffffffl;
+        d |= ((long) b[index++] << 48) & 0xffffffffffffffl;
+        d |= ((long) b[index] << 56) & 0xffffffffffffffffl;
+        return Double.longBitsToDouble(d);
+     //   return l;
+    }
+
+
+    /**
+     * float转换byte
+     *
+     * @param b
+     * @param x
+     * @param index
+     */
+    public static void putFloat(byte[] b, float x, int index) {
+
+        int  f = Float.floatToIntBits(x);
+
+        b[index++] = (byte)(f);
+        b[index++] = (byte)(f >> 8);
+        b[index++] = (byte)(f >> 16);
+        b[index] = (byte)(f >> 24);
     }
 
     /**
@@ -366,19 +404,8 @@ public class SDCardFileTool {
      * @param index
      * @return
      */
-    public static double getDouble(byte[] b, int index) {
-        long db;
-        db = b[index++] & 0xff;
-        db |= ((long) b[index++] << 8) & 0xffff;
-        db |= ((long) b[index++] << 16) & 0xffffff;;
-        db |= ((long) b[index++] << 24) & 0xffffffffl;
-        db |= ((long) b[index++] << 32) & 0xffffffffffl;
-        db |= ((long) b[index++] << 40) & 0xffffffffffffl;
-        db |= ((long) b[index++] << 48) & 0xffffffffffffffl;
-        db |= ((long) b[index] << 56) & 0xffffffffffffffffl;
-    //    Log.d("debug001","转化值："+Double.longBitsToDouble(db)+" ");
-        return Double.longBitsToDouble(db);
-     //   return l;
+    public static float getFloat(byte[] b, int index) {
+        return Float.intBitsToFloat(getInt(b,index));
     }
 
 }

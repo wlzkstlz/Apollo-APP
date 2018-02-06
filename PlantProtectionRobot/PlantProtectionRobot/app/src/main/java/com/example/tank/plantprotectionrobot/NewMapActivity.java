@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
+
 import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.getMappingData;
 import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.getMappingHead;
 
@@ -69,6 +70,9 @@ import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileToo
 
 /*
  @新建地图测绘界面程序
+ *由于程序需要按home件依然运行 又要处理和蓝牙Service的绑定和解除绑定，所以在3个地方处理与BLE的绑定关系
+ * 1、按下退出件回到控制中心，2、back建触发，(都会调用onDestroy())3、保存路径文件回到连接界面 unbindService不起作用？
+
  */
 
 public class NewMapActivity extends AppCompatActivity implements View.OnTouchListener{
@@ -108,7 +112,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private int detFlag =0; //擦除点标志
 
     private long  longTouch;  //长按判断计时
-    private Point screenPoint; //获取屏幕的大小
+    private GpsPoint screenPoint; //获取屏幕的大小
     private int touchMode = 0;//手势检测标志1时表示有两个触点
     private int touchDet = 0;//手势检长按
     private PointF startPoint = new PointF(); //第一个手指按下是的坐标
@@ -134,19 +138,23 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private  float ratio = 100;
     private  float ratioO = 100;
     private final int RATIO_MIN=1;
-    private final int RATIO_MAX=1000;
+    private final int RATIO_MAX=500;
     //计算滑动距离
     private float startDis=0;
     private float endDis=0;
 
     //刷新地图的定时器
     private Handler handler;
-    private Timer timer;
+
+    //接收RTK数据
+    private  Handler bleHandler;
+
+    private TimerTask timerTask;
 
 
     //测绘擦除状态 false表示字测绘运行，true表示正在擦除
     private boolean detMapping;
-    private boolean getLocationFlag = true;//定位状态false失败
+    private boolean getLocationFlag;//定位状态false失败
 
     private Intent centerCtr;
     //**蓝牙相关**//
@@ -157,20 +165,20 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private final int BLE_SCAN_OFF = 11;
     private final int BLE_SCAN_ON = 10; //扫描到蓝牙
     private final int BLE_DATA_ON = 30; //接收到数据
+    private final int RTK_UCONNECT =40;//RTK掉线
     private final int DRAW_MAP =1;
 
     //BLE service
     private BleServiceConn bleServiceConn;
     private BLEService.BleBinder binder = null;
 
-    private final int BLE_MAPPING = 1;//测绘蓝牙
-
-
     //手机振动，音乐播放控制
     private VibrationAndMusic vibrationAndMusic;
-    private boolean remindMsgRTK = false;//RTK连接失败连接标志（包含本身定位和蓝牙）,对话框只跳出一次
+    private int remindMsgRTK = 0;//提醒消息弹框，2有弹框，1无弹框（但是不可以再次弹出），0可以再次弹框，，目的是保证弹框不重复，RTK连接失败连接标志（包含本身定位和蓝牙）。
     private final int DIALOG_BLE_RTK_FAIL = 1;//RTK定位失败或蓝牙连接中断
     private final int DIALOG_START_MAPPING = 2;
+    private int uconnectTime=0;//掉线检测，3秒没接收到数据认为掉线，定时器中计数，接收回调函数中清零
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -197,6 +205,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         //实例化测绘list
         mappingList=new ArrayList<MappingGroup>();
 
+
+
         //初始化高德地图定位
         initMap();
         //初始化自定义地图
@@ -204,10 +214,13 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         //按键监听
         setOnClick();
 
+       InitRtkConnect();
+
         //与定时器配合定时器，用于更新地图数据
         handler = new Handler() {
             public void handleMessage(Message msg) {
                 if (msg.what == DRAW_MAP) {
+
                     if (mListPointL.size() > 1) {
 
                         ArrayList<GpsPoint> list1 = new ArrayList<GpsPoint>();
@@ -229,14 +242,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                 super.handleMessage(msg);
             };
         };
-        timer = new Timer();
-        timer.schedule(new TimerTask() {
-            public void run() {
-                Message message = new Message();
-                message.what = 1;
-                handler.sendMessage(message);
-            }
-        }, 1000,100);
+
     }
 
     /***
@@ -254,7 +260,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         switch(whatDialog){
             case DIALOG_BLE_RTK_FAIL:
 
-                remindMsgRTK = true;
+                remindMsgRTK = 2;//有弹框标志
                 msgDialog.setTitle("信号丢失");
                 msgDialog.setMessage( msg);
                 msgDialog.setPositiveButton("好的",
@@ -265,6 +271,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                 if (vibrationAndMusic.getVibrate()){
                                     vibrationAndMusic.stopVibration();
                                 }
+                                remindMsgRTK=1;//无弹框
 
                             }
                         });
@@ -278,7 +285,13 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                             new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    //...To-do
+                                    //关闭音乐
+                                    if(vibrationAndMusic.getMusicState()) {
+                                        vibrationAndMusic.playmusic(false);
+                                    }
+                                    if(vibrationAndMusic.getVibrate()){
+                                        vibrationAndMusic.stopVibration();
+                                    }
                                 }
                             });
 
@@ -303,17 +316,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
             public void onGlobalLayout() {
                 //       Log.e("Tank001", mapView.getMeasuredWidth() + "==" + mapView.getMeasuredHeight());
                 screenPoint.x = mapView.getMeasuredWidth();
-                screenPoint.y = mapView.getMeasuredHeight();
+                screenPoint.y=  mapView.getMeasuredHeight();
 
                 //加载主干道数据
                 if(firstInit == true) {
-
-                    //播放音乐
-                    if(vibrationAndMusic != null) {
-                        if (vibrationAndMusic.getMusicState() == false) {
-                            vibrationAndMusic.playmusic(true);
-                        }
-                    }
 
                     if (mListPointM.size() == 0) {
                         readMappingFromSD();
@@ -321,7 +327,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                     firstInit = false;
                     mvPoint.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
                     mvPointO.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
-                    mapView.InitView(mvPoint,ratioO);
+                    mapView.InitView(mvPoint,screenPoint,ratioO);
                 }
 
              //   Log.d(TAG,"函数被触发");
@@ -338,56 +344,47 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
                 detMapping =true;
                 eraseBtn.setVisibility(View.INVISIBLE);
+                exitBtn.setVisibility(View.INVISIBLE);
+
                 saveBtn.setText("确认");
                 textView1.setText("擦除路径");
                 if(mListPointL.size()>1) {
                      touchPoint.x = mListPointL.get(0).x;
                      touchPoint.y = mListPointL.get(0).y;
-                     detFlag = mListPointL.size() - 1;
-                }
-
-                //停止播放音乐
-                if(vibrationAndMusic.getMusicState()) {
-                    vibrationAndMusic.playmusic(false);
+                     detFlag = 0;
                 }
 
                 String str = "您所在位置为红色点，请用手指点击需要擦除的段起点，黑色点到黄色点的灰色路径是擦除段，" +
                             "您走到黑色点后才能擦除路径";
                 displayMsgDialog(str,DIALOG_START_MAPPING);
-
-
-
-
             }
         });
         exitBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(true == detMapping){//小于10m
-/*
-                    if(Math.abs(psonPoint.x-mListPointL.get(mListPointL.size()-1).x)<((double)NEAR_DIS*screenPoint.x/MAPMAX_DIS)
-                            && Math.abs(psonPoint.x-mListPointL.get(mListPointL.size()-1).x)<((double)NEAR_DIS*screenPoint.y/MAPMAX_DIS)){
-                        saveBtn.setText("保存");
-                        detMapping =false;
-                        eraseBtn.setVisibility(View.VISIBLE);
-                    }else {
-                        Toast.makeText(getApplicationContext(), "走到测绘绿色箭头位置才能退出",
-                                Toast.LENGTH_SHORT).show();
-                    }
-*/
-                }else {
-                    if(binder !=null)
-                    {
-                        //断开蓝牙连接
-                        binder.unconnectBle();
-                        Log.d(TAG,"退出测绘，关闭蓝牙连接");
-                    }
-                    //关闭音乐
-                    if(vibrationAndMusic.getMusicState()) {
-                        vibrationAndMusic.playmusic(false);
-                    }
-                    startActivity(centerCtr);
+                if (binder != null) {
+                    //断开蓝牙连接
+                    binder.unconnectBle();
+                    Log.d(TAG, "退出测绘，关闭蓝牙连接");
                 }
+
+                //解除绑定
+                timerTask.cancel();
+                if (binder != null) {
+                    binder.setBleWorkTpye(BLEService.SERV_BLE_NULL);
+                    binder = null;
+                    bleServiceConn = null;
+                }
+
+                //关闭音乐
+                if (vibrationAndMusic.getMusicState()) {
+                    vibrationAndMusic.playmusic(false);
+                }
+                if (vibrationAndMusic.getVibrate()) {
+                    vibrationAndMusic.stopVibration();
+                }
+
+                startActivity(centerCtr);
 
             }
         });
@@ -436,6 +433,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                             saveBtn.setText("保存");
                             detMapping = false;
                             eraseBtn.setVisibility(View.VISIBLE);
+                            exitBtn.setVisibility(View.INVISIBLE);
+
 
                             //关闭手机振动
                             if(vibrationAndMusic != null) {
@@ -447,17 +446,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                     Toast.LENGTH_SHORT).show();
                         }
                     }else{
-
-                        //播放音乐
-                        if(vibrationAndMusic.getMusicState() == false) {
-                            vibrationAndMusic.playmusic(true);
-                            Log.d(TAG,"开始播放音乐");
-                        }
-
-
                         saveBtn.setText("保存");
                         detMapping = false;
                         eraseBtn.setVisibility(View.VISIBLE);
+                        exitBtn.setVisibility(View.INVISIBLE);
 
                     }
                 }
@@ -467,31 +459,38 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         moveCenterBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                moveToCenter();//当前位置移动到中心
 
-                if(screenPoint.x > 0 && mListPointL.size()>0) {
-
-                    GpsPoint point = new GpsPoint();
-                    point.x = mListPointL.get(mListPointL.size() - 1).x;
-                    point.y = mListPointL.get(mListPointL.size() - 1).y;
-                    mvPoint.x = (1 - ratioO) * (point.x);
-                    mvPoint.y = (1 - ratioO) * (point.y);
-
-                    if (mvPoint.x < screenPoint.x * (1 - ratio)) {
-                        mvPoint.x = screenPoint.x * (1 - ratio);
-                    } else if (mvPoint.x > 0) {
-                        mvPoint.x = 0;
-                    }
-                    if (mvPoint.y < screenPoint.y * (1 - ratio)) {
-                        mvPoint.y = screenPoint.y * (1 - ratio);
-                    } else if (mvPoint.y > 0) {
-                        mvPoint.y = 0;
-                    }
-                    //    mvPointO = mvPoint;
-                    mvPointO.x = mvPoint.x;
-                    mvPointO.y = mvPoint.y;
-                }
             }
         });
+    }
+
+    /***
+     * 将当前位置移动到画布中心
+     */
+    private void moveToCenter(){
+        if(screenPoint.x > 0 && mListPointL.size()>0) {
+
+            GpsPoint point = new GpsPoint();
+            point.x = mListPointL.get(mListPointL.size() - 1).x;
+            point.y = mListPointL.get(mListPointL.size() - 1).y;
+            mvPoint.x = (1 - ratioO) * (point.x);
+            mvPoint.y = (1 - ratioO) * (point.y);
+
+            if (mvPoint.x < screenPoint.x * (1 - ratio)) {
+                mvPoint.x = screenPoint.x * (1 - ratio);
+            } else if (mvPoint.x > 0) {
+                mvPoint.x = 0;
+            }
+            if (mvPoint.y < screenPoint.y * (1 - ratio)) {
+                mvPoint.y = screenPoint.y * (1 - ratio);
+            } else if (mvPoint.y > 0) {
+                mvPoint.y = 0;
+            }
+            //    mvPointO = mvPoint;
+            mvPointO.x = mvPoint.x;
+            mvPointO.y = mvPoint.y;
+        }
     }
     /***
      * 初始化画布相关
@@ -500,11 +499,16 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
         mListPointL = new ArrayList<GpsPoint>();
         mListPointM = new ArrayList<GpsPoint>();
-        screenPoint = new Point();
+        screenPoint = new GpsPoint();
         vibrationAndMusic = new VibrationAndMusic(NewMapActivity.this);
 
         textView2.setText(""+5000/ratioO+"米");
+        textView1.setText("信号丢失");
 
+        getLocationFlag = true;//初始化的时候还没有定位,默认RTK还没有定位成功
+        remindMsgRTK = 1;
+        linearLayout.setBackgroundColor(getResources().getColor(R.color.colorRed));
+        moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position_1));
 
         screenPoint.x = 0;
         screenPoint.y = 0;
@@ -519,13 +523,12 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
             touchPoint.y = mListPointL.get(mListPointL.size() - 1).y;
             detFlag = mListPointL.size()-1;
         }else {
-            touchPoint.x = -100;
-            touchPoint.y = -100;
+            touchPoint.x = -1000;
+            touchPoint.y = -1000;
             detFlag = 0;
         }
 
         detMapping = false;
-
 
     }
 
@@ -560,13 +563,20 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                 for(int j=0;j<gpslist.size();j++){
                     GpsPoint point=new GpsPoint();
                     //转化为画布坐标
-                    point.x = screenPoint.x/2+(gpslist.get(j).longitude*Math.cos(gpslist.get(j).latitude * Math.PI / 180) - bPoint.x*Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                    point.y = screenPoint.y/2+(bPoint.y -gpslist.get(j).latitude) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
-                    //       point.d = gpslist.get(j).direction;
+                 //   point.x = screenPoint.x/2+(gpslist.get(j).longitude*Math.cos(gpslist.get(j).latitude * Math.PI / 180) - bPoint.x*Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                 //   point.y = screenPoint.y/2+(bPoint.y -gpslist.get(j).latitude) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
+
+                    point.x  = screenPoint.x / 2+ ((((double)gpslist.get(j).longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                    //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
+                    point.y= screenPoint.y / 2 + (bPoint.y - ((double)gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * ((double) screenPoint.y * GPS_DIS / MAPMAX_DIS);
+
+
                     mListPointM.add(point);
                     //      Log.d(TAG, "测绘点:"+point.x +" "+point.y+" "+point.z);
-                    //      Log.d("Tank001", "显示 RTK状态：" + gpslist.get(j).rtkState + "时间：" + gpslist.get(j).GPSTime_tow + "经度：" + gpslist.get(j).longitude
-                    //               + "纬度：" + gpslist.get(j).latitude + "海拔：" + gpslist.get(j).altitude + "方向：" + gpslist.get(j).direction+"\n");
+
+                    Log.d(TAG, "RTK状态：" +gpslist.get(j).rtkState +  " 经度：" + gpslist.get(j).longitude + " 纬度：" +gpslist.get(j).latitude + " 海拔：" + gpslist.get(j).altitude + " roll：" + gpslist.get(j).roll
+                            + " pitch：" + gpslist.get(j).pitch + " 方向：" + gpslist.get(j).yaw+ " 周：" + gpslist.get(j).GPSTime_weeks+ " 时间：" + gpslist.get(j).GPSTime_ms);
+
                 }
 
             }
@@ -787,7 +797,12 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         return new PointF(midX,midY);
     }
 
-    Handler bleHandler = new Handler() {
+    /***
+     * 接收处理RTK连接
+     */
+    private void InitRtkConnect(){
+
+    bleHandler = new Handler() {
         public void handleMessage(android.os.Message msg) {
             //在handler中更新UI
             switch(msg.what){
@@ -798,18 +813,18 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                 case BLE_DATA_ON:
                     //接收到数据
                     MappingGroup rtkMap=(MappingGroup) msg.obj;
-                //    Log.d(TAG,"RTK状态："+rtkMap.rtkState+"时间："+rtkMap.GPSTime_tow+"经度："+rtkMap.longitude
-                 //           +"纬度："+rtkMap.latitude+"海拔："+rtkMap.altitude+"方向：\n"+rtkMap.direction);
-                    if(rtkMap.rtkState == 3) {//等于3定位才准
+                    uconnectTime=0;
+                    //    Log.d(TAG,"RTK状态："+rtkMap.rtkState+"时间："+rtkMap.GPSTime_tow+"经度："+rtkMap.longitude
+                    //           +"纬度："+rtkMap.latitude+"海拔："+rtkMap.altitude+"方向：\n"+rtkMap.direction);
+                    if(rtkMap.rtkState == 1) {//等于1才是FIX数据
                         //默认基站在画布中心，测绘点的位置是相对于基站的位置
                         moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position));
                         GpsPoint gpsPoint = new GpsPoint();
-                        gpsPoint.x = screenPoint.x / 2+ (rtkMap.longitude * Math.cos(rtkMap.latitude * Math.PI / 180) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                        //     gpsPoint.y = screenPoint.y/2+(rtkMap.latitude - bPoint.y) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
-                        //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                        gpsPoint.y = screenPoint.y / 2 + (bPoint.y - rtkMap.latitude) * ((double) screenPoint.y * GPS_DIS / MAPMAX_DIS);
 
-                        gpsPoint.d = rtkMap.direction;
+                        gpsPoint.x = screenPoint.x / 2+ ((((double)rtkMap.longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                        //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
+                        gpsPoint.y = screenPoint.y / 2 + (bPoint.y - ((double)rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * ((double) screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                        gpsPoint.d = rtkMap.yaw;
 
                         psonPoint.x = gpsPoint.x;
                         psonPoint.y = gpsPoint.y;
@@ -817,36 +832,43 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         //         Log.d(TAG,"X坐标："+psonPoint.x+" Y坐标"+psonPoint.y)
                         if (false == detMapping && screenPoint.x != 0) {//正常测绘模式下
 
-                            if(getLocationFlag == false){//定位失败，第一次进入定位成功
+                            if(getLocationFlag == false && mappingList.size()>0){//定位失败，第一次进入定位成功
                                 if (Math.abs(psonPoint.x - mListPointL.get(mListPointL.size()-1).x) < ( NEAR_DIS * screenPoint.x / MAPMAX_DIS)
                                         && Math.abs(psonPoint.y - mListPointL.get(mListPointL.size()-1).y) < (NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
                                     //手机振动
                                     if(vibrationAndMusic.getVibrate() == false) {
-                                        vibrationAndMusic.Vibrate(new long[]{500, 1000, 500, 1000}, false);
-                                    }
-                                    //播放音乐
-                                    if (vibrationAndMusic.getMusicState() == false){
-                                        vibrationAndMusic.playmusic(true);
+                                        vibrationAndMusic.Vibrate(new long[]{500, 1000, 500, 1000}, true);
                                     }
                                     getLocationFlag =true;
                                 }
                             }else { //正常测绘
+
+                                //定位数据处理
                                 mappingList.add(rtkMap);
                                 mListPointL.add(gpsPoint);
-                               detFlag = mListPointL.size() - 1;
+                                detFlag = mListPointL.size() - 1;
+
+                                //提示信息处理
+                                if(vibrationAndMusic.getVibrate()) {
+                                    vibrationAndMusic.stopVibration();
+                                }
+                                //播放音乐
+                                if(vibrationAndMusic.getMusicState() == false) {
+                                    vibrationAndMusic.playmusic(true);
+                                    textView1.setText("正在测绘");
+                                }
                             }
                         } else {//擦除模式下
                             //与删除点重合
                             if (Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < ( NEAR_DIS * screenPoint.x / MAPMAX_DIS)
                                     && Math.abs(psonPoint.y - mListPointL.get(detFlag).y) < (NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
                                 //手机振动
-                             if(vibrationAndMusic.getVibrate() == false) {
-                                 vibrationAndMusic.Vibrate(new long[]{500, 1000}, true);
-                                 //   VibratorUtil.Vibrate(NewMapActivity.this,new long[]{500,500,500,500},true,true);
-                             }
-                             if (vibrationAndMusic.getMusicState() == false){
-                                 vibrationAndMusic.playmusic(true);
-                              }
+                                if(vibrationAndMusic.getVibrate() == false) {
+                                    vibrationAndMusic.Vibrate(new long[]{500, 1000,500,1000}, true);
+                                }
+                                if (vibrationAndMusic.getMusicState() == false){
+                                    vibrationAndMusic.playmusic(true);
+                                }
                             }else {
                                 //停止振动，和播放音乐
                                 if(vibrationAndMusic.getVibrate()) {
@@ -860,17 +882,21 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         }
 
                         linearLayout.setBackgroundColor(getResources().getColor(R.color.tankgreen));
-                        remindMsgRTK = false;
+                        if(1 == remindMsgRTK) {
+                            remindMsgRTK = 0;//连接上拉，可以再次弹框
+                        }
 
                     }else{
-                        //定位失败
-                        moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position_1));
-                        linearLayout.setBackgroundColor(getResources().getColor(R.color.colorRed));
 
                         //定位失败，不显示人的位置
                         psonPoint.x = -100;
                         psonPoint.y = -100;
                         psonPoint.d = 0;
+
+
+                        //定位失败
+                        moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position_1));
+                        linearLayout.setBackgroundColor(getResources().getColor(R.color.colorRed));
 
                         getLocationFlag =false;
 
@@ -878,7 +904,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                             vibrationAndMusic.playmusic(false);
                         }
 
-                        if(remindMsgRTK == false) {
+                        if(remindMsgRTK == 0) {
 
                             if(vibrationAndMusic.getVibrate() == false) {
                                 vibrationAndMusic.Vibrate(new long[]{500, 1000,500,1000}, true);
@@ -893,7 +919,31 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
                     }
                     break;
+                case RTK_UCONNECT: //计时器判断RTK掉线
+                    getLocationFlag = false;
+
+                    textView1.setText("信号丢失");
+
+                    linearLayout.setBackgroundColor(getResources().getColor(R.color.colorRed));
+                    moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position_1));
+
+                    if(remindMsgRTK == 0) {
+
+                        if (vibrationAndMusic.getMusicState()){
+                            vibrationAndMusic.playmusic(false);
+                        }
+
+                        if(vibrationAndMusic.getVibrate() == false) {
+                            vibrationAndMusic.Vibrate(new long[]{500, 1000,500,1000}, true);
+                        }
+
+                        String str = "等待信号恢复正常，您的位置为红色点，请找到黄色位置点继续开始测绘";
+                        displayMsgDialog(str,DIALOG_BLE_RTK_FAIL);
+                        //  Log.d(TAG,"信号丢失");
+                    }
+                    break;
                 case BLE_CONNECT_OFF:
+                    /*
                    textView1.setText("信号丢失");
                    linearLayout.setBackgroundColor(getResources().getColor(R.color.colorRed));
 
@@ -905,21 +955,24 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         vibrationAndMusic.playmusic(false);
                     }
 
-                    if(vibrationAndMusic.getVibrate() == false) {
-                        vibrationAndMusic.Vibrate(new long[]{500, 1000,500,1000}, true);
-                    }
+                    if(remindMsgRTK == 0) {
 
-                    if(remindMsgRTK == false) {
+                        if(vibrationAndMusic.getVibrate() == false) {
+                            vibrationAndMusic.Vibrate(new long[]{500, 1000,500,1000}, true);
+                        }
 
-                        String str = "蓝牙信号丢失，请等待信号恢复";
+                        String str = "蓝牙信号丢失等待复正常，您的位置为红色点，请找到黄色位置点继续开始测绘";
                        displayMsgDialog(str,DIALOG_BLE_RTK_FAIL);
                      //  Log.d(TAG,"信号丢失");
                     }
-
+                   */
                     binder.connectBle(null,true);//掉线重连
+                    Log.d(TAG,"信号丢失");
+
                     break;
                 case BLE_CONNECT_ON:
-                    remindMsgRTK = false;//连接上，可以继续弹出消息
+                    /*
+                    remindMsgRTK = 0;//连接上，可以继续弹出消息
                     if(true == detMapping ) {
                         textView1.setText("擦除路径");
                     }else {
@@ -927,11 +980,16 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                     }
                     linearLayout.setBackgroundColor(getResources().getColor(R.color.tankgreen));
                     moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position));
+                    */
                     break;
             }
 
         }
     };
+
+
+}
+
 
     /***
      * service连接
@@ -945,11 +1003,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
             // IBinder service为onBind方法返回的Service实例
             binder = (BLEService.BleBinder) service;
 
-            //开启
-            if(binder !=null)
-            {
-                //开启音乐
-                binder.setBleWorkTpye(BLE_MAPPING);
+            //开启，设置Ble工作类型
+            if(binder != null){
+                binder.setBleWorkTpye(BLEService.SERV_BLE_MAPPING);
+
             }
 
             binder.getService().setDataCallback(new BLEService.DataCallback() {
@@ -987,30 +1044,44 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         }
     }
 
-    /***
-     * 绑定蓝牙service函数
-     */
-    private void bindBleSerive(){
-        //Ble
-        bleServiceConn = new BleServiceConn();
-        bindService(intentSev, bleServiceConn, Context.BIND_AUTO_CREATE);
-    }
-
     @Override
     protected void onStart() {
-        //绑定蓝牙服务后台
-        bindBleSerive();
 
+        //绑定蓝牙服务
+        bleServiceConn = new BleServiceConn();
+        bindService(intentSev, bleServiceConn, Context.BIND_AUTO_CREATE);
+
+        //开启定时器
+        Timer timer = new Timer();
+        timerTask = new TimerTask() {
+            @Override
+            public void run() {
+
+                handler.sendEmptyMessage(1);
+
+                uconnectTime++;//RTK掉线检测计时
+                if( uconnectTime>=30){//计时3秒，RTK掉线
+                    Message message = new Message();
+                    message.what = RTK_UCONNECT;
+                    bleHandler.sendEmptyMessage(RTK_UCONNECT);
+
+                    uconnectTime=0;
+                }
+
+            //    Log.d(TAG,"定时器运行中");
+            }
+        };
+        timer.schedule(timerTask,1000,100);
+
+        Log.d(TAG, "NewMap onStart()");
         super.onStart();
     }
 
+
     @Override
-    protected void onStop() {
-
-        //解除蓝牙服务后台绑定绑定
-        unbindService(bleServiceConn);
-
-        super.onStop();
+    public void onBackPressed() {
+        Log.d(TAG, "onBackPressed() ");
+        super.onBackPressed();
     }
 
     @Override
@@ -1018,6 +1089,17 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         //删除播放器
         vibrationAndMusic.deletMediaPlayer();
         vibrationAndMusic.stopVibration();
+
+        //解除绑定
+        timerTask.cancel();
+        if(binder !=null){
+            binder.setBleWorkTpye(BLEService.SERV_BLE_NULL);
+            binder=null;
+            bleServiceConn = null;
+        }
+
+
+        Log.d(TAG, "onDestroy() ");
         super.onDestroy();
     }
 

@@ -25,7 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getDouble;
+import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getFloat;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getInt;
+import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getShort;
 
 /**
  * Created by TK on 2018/1/22.
@@ -49,10 +51,12 @@ public class BLEService extends Service {
 
     private final int SCAN_PERIOD =5000;//蓝牙搜索时间
 
-    private final int BLE_MAPPING = 1;//测绘蓝牙
-    private final int BLE_HANDLE = 2;//手柄蓝牙
-    private final int BLE_MASTER = 3;//算法板蓝牙
-    private final int BLE_BASIC = 4;//基站蓝牙
+    public static final int  SERV_BLE_NULL = 0;//不做任何事
+    public static final int SERV_BLE_MAPPING = 10;//测绘蓝牙，测绘界面
+    public static final int SERV_BLE_MAPPING_CONNECT = 11;//测绘蓝牙,连接界面
+    public static final int SERV_BLE_HANDLE = 20;//手柄蓝牙
+    public static final int SERV_BLE_MASTER = 30;//算法板蓝牙
+    public static final int SERV_BLE_BASIC = 40;//基站蓝牙
 
     //蓝牙
     /**搜索BLE终端*/
@@ -80,10 +84,18 @@ public class BLEService extends Service {
     //**蓝牙工作工况**//
     private int bleWorkTpye =0;
 
+    // 解绑Servcie调用该方法
+    @Override
+    public boolean onUnbind(Intent intent) {
+        Log.d(TAG,"--onUnbind()--");
+        dataCallback = null;//解除绑定后清除回调类
+        return super.onUnbind(intent);
+    }
 
     // 必须实现的方法，用于返回Binder对象
     @Override
     public IBinder onBind(Intent intent) {
+
         Log.d(TAG,"--onBind()--");
 
         msgWhat=BLE_CONNECTED;
@@ -144,6 +156,7 @@ public class BLEService extends Service {
                     //若参数
                     if(isConnectedBle !=null){
                         mBLE.connect(isConnectedBle.getAddress());
+                        Log.d(TAG, "接收蓝牙连接指令连接蓝牙");
                     }
                 }
             }else{
@@ -152,15 +165,14 @@ public class BLEService extends Service {
             return true;
         }
 
-
         /***
          *
          * @param type 1连接测绘蓝牙，2连接手柄蓝牙，3连接算法板蓝牙 4连接基站蓝牙
          */
         public void setBleWorkTpye(int type){
             bleWorkTpye =type;
+            Log.d(TAG,"setBleWorkTpye="+type);
         }
-
     }
 
     // 创建Service时调用该方法，只调用一次
@@ -179,8 +191,8 @@ public class BLEService extends Service {
 
                 while (serviceRunning) {
 
-                    if (dataCallback != null) {
-                        //      dataCallback.dataChanged(str);
+                    if (dataCallback != null && SERV_BLE_NULL !=bleWorkTpye) {
+
                         switch(msgWhat){
                             case BLE_SCAN_ON:
                                 ArrayList<BluetoothDevice> mBleList =new ArrayList<BluetoothDevice>();
@@ -223,31 +235,30 @@ public class BLEService extends Service {
                                 break;
                         }
 
-
                         if(revWaitTime>0){
                             revWaitTime--; //RTK传输数据周期是100ms，超过50ms还没接收完侧认为数据被截断
                         }
-
                     }
 
                     /*
-                        myPiont=myPiont+0.0000005;
+                        myPiont=myPiont+0.00000001;
                         MappingGroup rtkMap=new MappingGroup();
-                        rtkMap.rtkState=1;   //RTK转台
-                        rtkMap.GPSTime_tow = 100000; //时间
-                        rtkMap.longitude = 113.894753+myPiont; //经度
-                        rtkMap.latitude = 22.958744+myPiont; //纬度
-                        rtkMap.altitude = 49.3000000; //海拔
-                        rtkMap.direction = myPiont*1000000; //方向
-
+                        rtkMap.rtkState=3;   //RTK转台
+                        rtkMap.GPSTime_ms = 100000; //时间
+                 //       rtkMap.longitude = (int) ((113.894753*MappingGroup.PI/180)*MappingGroup.INM_LON_LAT_SCALE+myPiont); //经度
+                //        rtkMap.latitude =  (int) ((22.958744*MappingGroup.PI/180)*MappingGroup.INM_LON_LAT_SCALE+myPiont); //纬度
+                        rtkMap.longitude = (int) ((1.98783844+myPiont)*MappingGroup.INM_LON_LAT_SCALE); //经度
+                        rtkMap.latitude =  (int) ((0.40070567+myPiont)*MappingGroup.INM_LON_LAT_SCALE); //纬度
+                        rtkMap.altitude = (float) 49.3; //海拔
+                        rtkMap.yaw = (float) (myPiont*100000000); //方向
                         //若有应用绑定服务，发送数据到该应用
                         if(dataCallback != null) {
                             dataCallback.BleDataChanged(rtkMap);
                         }
-                    */
+                       */
                     try {
                         sleep(10); //延时
-                    //   sleep(100); //测试用延时
+                 //     sleep(100); //测试用延时
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -301,14 +312,6 @@ public class BLEService extends Service {
         }
 
         return super.onStartCommand(intent, flags, startId);
-    }
-
-    // 解绑Servcie调用该方法
-    @Override
-    public boolean onUnbind(Intent intent) {
-        Log.d(TAG,"--onUnbind()--");
-        dataCallback = null;//解除绑定后清除回调类
-        return super.onUnbind(intent);
     }
 
     // 退出或者销毁时调用该方法
@@ -385,7 +388,6 @@ public class BLEService extends Service {
         }
     }
 
-
     //BLE设备连接监听,当设备连接上后会调用此函数
     private BluetoothLeClass.OnConnectListener mOnConnectListener
             = new  BluetoothLeClass.OnConnectListener(){
@@ -441,10 +443,10 @@ public class BLEService extends Service {
         public void onCharacteristicRevice(BluetoothGatt gatt,
                                            BluetoothGattCharacteristic characteristic) {
 
-             Log.d(TAG,"蓝牙数据帧： "+characteristic.getValue().length +" -> " +Utils.bytesToHexString(characteristic.getValue()));
+          //  Log.d(TAG,"蓝牙数据帧： "+characteristic.getValue().length +" -> " +Utils.bytesToHexString(characteristic.getValue()));
 
            switch (bleWorkTpye) {
-               case BLE_MAPPING:
+               case SERV_BLE_MAPPING:
 
                byte[] buf = characteristic.getValue();
 
@@ -459,7 +461,7 @@ public class BLEService extends Service {
                    System.arraycopy(buf, 0, revBuf, revBuf[0] + 1, buf.length);
                    revBuf[0] += (byte) buf.length;//数组起始地址偏移
                }
-               if (revCount == 3) {
+               if (revCount == 2) {
 
                    revStart = false;
                    revCount=0;
@@ -472,21 +474,27 @@ public class BLEService extends Service {
                        //转化成数据流转GPS数据
                        MappingGroup rtkMap = new MappingGroup();
                        int sp = 2;
-                       rtkMap.rtkState = bleBuf[sp];   //RTK转台
+                       rtkMap.rtkState = bleBuf[sp];   //RTK状态
                        sp = sp + 1;
-                       rtkMap.GPSTime_tow = getInt(bleBuf, sp); //时间
+                       rtkMap.longitude = getInt(bleBuf, sp); //经度
                        sp = sp + 4;
-                       rtkMap.latitude = getDouble(bleBuf, sp); //纬度
+                       rtkMap.latitude = getInt(bleBuf, sp); //纬度
+                       sp = sp + 4;
+                       rtkMap.altitude = getFloat(bleBuf, sp); //海拔
+                       sp = sp + 4;
+                       rtkMap.roll = getFloat(bleBuf, sp); //IMU
+                       sp = sp + 4;
+                       rtkMap.pitch = getFloat(bleBuf, sp); //IMU
+                       sp = sp + 4;
+                       rtkMap.yaw = getFloat(bleBuf, sp); //方向
+                       sp = sp + 4;
+                       rtkMap.GPSTime_weeks = getShort(bleBuf, sp); //周
+                       sp = sp + 2;
+                       rtkMap.GPSTime_ms = getInt(bleBuf, sp); //时间ms
 
-                       sp = sp + 8;
-                       rtkMap.longitude = getDouble(bleBuf, sp); //经度
-                       sp = sp + 8;
-                       rtkMap.altitude = getDouble(bleBuf, sp); //海拔
-                       sp = sp + 8;
-                       rtkMap.direction = getDouble(bleBuf, sp); //方向
 
-                       Log.d(TAG, "RTK状态：" + rtkMap.rtkState + "时间：" + rtkMap.GPSTime_tow + "经度：" + rtkMap.longitude
-                               + "纬度：" + rtkMap.latitude + "海拔：" + rtkMap.altitude + "方向：\n" + rtkMap.direction);
+                       Log.d(TAG, "RTK状态：" +rtkMap.rtkState +  " 经度：" + rtkMap.longitude + " 纬度：" + rtkMap.latitude + " 海拔：" + rtkMap.altitude + " roll：" + rtkMap.roll
+                               + " pitch：" + rtkMap.pitch + " 方向：" + rtkMap.yaw+ " 周：" + rtkMap.GPSTime_weeks+ " 时间：" + rtkMap.GPSTime_ms);
 
                        //若有应用绑定服务，发送数据到该应用
                        if (dataCallback != null) {
@@ -496,27 +504,37 @@ public class BLEService extends Service {
                    } else {
                        Log.d(TAG, "接收数据校验失败");
 
-                       revWaitTime=5;//延时50ms,防止数据从中间截断
+                       revWaitTime=4;//延时50ms,防止数据从中间截断
                        //定位失败数据全为0
                        MappingGroup rtkMap = new MappingGroup();
-                       rtkMap.rtkState = 0;   //RTK转台
-                       rtkMap.GPSTime_tow = 0; //时间
-                       rtkMap.latitude = 0; //纬度
-                       rtkMap.longitude = 0; //经度
-                       rtkMap.altitude = 0; //海拔
-                       rtkMap.direction = 0; //方向
+                       rtkMap.rtkState = 0;
+                       rtkMap.longitude = 0;
+                       rtkMap.latitude = 0;
+                       rtkMap.altitude =0;
+                       rtkMap.roll=0;
+                       rtkMap.pitch=0;
+                       rtkMap.yaw=0;
+                       rtkMap.GPSTime_weeks=0;
+                       rtkMap.GPSTime_ms=0;
+
                    }
                    revCount = 0;
                    //     Log.d(TAG,"蓝牙接收数据： "+bleBuf.length +" -> " +Utils.bytesToHexString(bleBuf));
 
                }
                    break;
-               case BLE_HANDLE:
+               case SERV_BLE_MAPPING_CONNECT:  //数据发送到连接测绘杆蓝牙
+
                    break;
-               case BLE_MASTER:
+               case SERV_BLE_HANDLE:
                    break;
-               case BLE_BASIC:
+               case SERV_BLE_MASTER:
                    break;
+               case SERV_BLE_BASIC:
+                   break;
+
+                   default:
+                       break;
            }
 
         }

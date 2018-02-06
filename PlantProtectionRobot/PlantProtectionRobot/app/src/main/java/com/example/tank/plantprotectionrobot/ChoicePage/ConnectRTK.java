@@ -1,6 +1,5 @@
 package com.example.tank.plantprotectionrobot.ChoicePage;
 
-import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
@@ -34,11 +33,8 @@ import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
 import com.example.tank.plantprotectionrobot.NewMapActivity;
 import com.example.tank.plantprotectionrobot.R;
 
-import java.io.File;
 import java.util.ArrayList;
 
-import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.MappingGroupToArray;
-import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.writeFileToSDCard;
 
 /**
  * @新建地图时，连接测绘杆界面
@@ -105,7 +101,7 @@ public class ConnectRTK extends Fragment {
         intentCenter = new Intent(getActivity(),CenterControlActivity.class);
         //开启蓝牙Service
         intentSev = new Intent(getActivity(), BLEService.class);
-
+        bleServiceConn = new BleServiceConn();
 
         //配置数据文件
         setinfo = getActivity().getSharedPreferences("TankSetInfo", Context.MODE_PRIVATE);
@@ -123,26 +119,17 @@ public class ConnectRTK extends Fragment {
         super.setUserVisibleHint(isVisibleToUser);
         if (isVisibleToUser) {//相当于Fragment的onResume
 
-            bindBleSerive();//绑定蓝牙服务
+            //绑定蓝牙服务
+            getActivity().bindService(intentSev, bleServiceConn, Context.BIND_AUTO_CREATE);
+            Log.d(TAG,"ConnectRTK,绑定BLE");
 
         } else {  //相当于Fragment的onPause
-            if (binder !=null) {
-                if(binder !=null){
-                    binder.unconnectBle();
-                }
-                getActivity().unbindService(bleServiceConn);
-            }
+
+            Log.d(TAG,"ConnectRTK onStop() ");
+
         }
     }
 
-    //绑定后台服务的函数
-    private void bindBleSerive(){
-        //Ble
-        bleServiceConn = new BleServiceConn();
-        getActivity().bindService(intentSev, bleServiceConn, Context.BIND_AUTO_CREATE);
-
-
-    }
 
     /***
      * 设置控件监听
@@ -223,6 +210,7 @@ public class ConnectRTK extends Fragment {
                     infoEditor.putLong("basicRTK.X", (long) (bPoint.x * 10000000000l));
                     infoEditor.putLong("basicRTK.Y", (long) (bPoint.y * 10000000000l));
                     infoEditor.commit();
+
                     startActivity(intentMap);
                 }else {
                     Toast.makeText(getActivity(), "未连接测绘，无法测绘" ,
@@ -237,15 +225,15 @@ public class ConnectRTK extends Fragment {
         endBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                //解除绑定
+                //断开蓝牙
                 if (binder !=null) {
                     binder.unconnectBle();//断开蓝牙连接
                 }
-                startActivity(intentCenter);
+                startActivity( intentCenter);
+
             }
         });
     }
-
 
     Handler handler = new Handler() {
         public void handleMessage(android.os.Message msg) {
@@ -312,18 +300,17 @@ public class ConnectRTK extends Fragment {
      */
     class BleServiceConn implements ServiceConnection {
         // 服务被绑定成功之后执行
-
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-
             // IBinder service为onBind方法返回的Service实例
             binder = (BLEService.BleBinder) service;
 
             //绑定后执行动作
             if(binder !=null){
                 binder.startScanBle();//搜索蓝牙
-            }
+                binder.setBleWorkTpye(BLEService.SERV_BLE_MAPPING_CONNECT);
 
+            }
             binder.getService().setDataCallback(new BLEService.DataCallback() {
                 //执行回调函数
                 @Override
@@ -338,7 +325,6 @@ public class ConnectRTK extends Fragment {
                     }
 
                 }
-
                 //BLE接收到数据
                 @Override
                 public void BleDataChanged(MappingGroup rtkMap) {

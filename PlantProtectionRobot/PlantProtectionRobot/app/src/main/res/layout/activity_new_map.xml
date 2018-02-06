@@ -59,8 +59,7 @@
             android:layout_marginTop="10dp"
             android:layout_weight="0.3"
 
-            android:text="退出"
-          />
+            android:text="放弃" />
 
     </LinearLayout>
 

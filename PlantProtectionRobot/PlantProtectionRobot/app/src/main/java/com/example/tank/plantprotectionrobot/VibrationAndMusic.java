@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Service;
 import android.media.MediaPlayer;
 import android.os.Vibrator;
+import android.util.Log;
 
 import com.example.tank.plantprotectionrobot.BLE.BLEService;
 
@@ -45,6 +46,7 @@ public class VibrationAndMusic {
 
     public void  stopVibration(){
         vib.cancel();
+
         vibratorWork =false;
 
     }
