@@ -19,7 +19,4 @@ public class RobotStateMsg {
     public boolean taskFile;//有无任务文件
     public boolean motorState;//发动机状态
 
-
-
-
 }

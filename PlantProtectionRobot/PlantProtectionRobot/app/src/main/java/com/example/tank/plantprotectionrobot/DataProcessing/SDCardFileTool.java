@@ -376,7 +376,6 @@ public class SDCardFileTool {
         d |= ((long) b[index++] << 48) & 0xffffffffffffffl;
         d |= ((long) b[index] << 56) & 0xffffffffffffffffl;
         return Double.longBitsToDouble(d);
-     //   return l;
     }
 
 
@@ -405,7 +404,17 @@ public class SDCardFileTool {
      * @return
      */
     public static float getFloat(byte[] b, int index) {
-        return Float.intBitsToFloat(getInt(b,index));
+        int f;
+
+        f = b[index + 0];
+        f &= 0xff;
+        f |= ((long) b[index + 1] << 8);
+        f &= 0xffff;
+        f |= ((long) b[index + 2] << 16);
+        f &= 0xffffff;
+        f |= ((long) b[index + 3] << 24);
+
+        return Float.intBitsToFloat(f);
     }
 
 }

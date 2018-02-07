@@ -14,6 +14,7 @@ import com.example.tank.plantprotectionrobot.appdata.FragmentAdapter;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.example.tank.plantprotectionrobot.DataProcessing.PermisionUtils.initLocationPermission;
 import static com.example.tank.plantprotectionrobot.DataProcessing.PermisionUtils.verifyStoragePermissions;
 
 
@@ -59,6 +60,6 @@ public class ChoiveActivity extends AppCompatActivity{
     @Override
     protected void onResume() {
         super.onResume();
-        verifyStoragePermissions(this) ;//针对6.0以上版本做权限适配
+
     }
 }

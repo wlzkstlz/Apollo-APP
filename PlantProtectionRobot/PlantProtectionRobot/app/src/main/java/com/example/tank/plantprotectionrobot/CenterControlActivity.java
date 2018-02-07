@@ -20,6 +20,7 @@ import android.widget.Toast;
 
 import com.example.tank.plantprotectionrobot.BLE.BLEService;
 import com.example.tank.plantprotectionrobot.BLE.BluetoothLeClass;
+import com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool;
 import com.example.tank.plantprotectionrobot.appdata.ListviewAdapterOne;
 import com.example.tank.plantprotectionrobot.appdata.ListviewAdapterTwo;
 
@@ -27,6 +28,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.example.tank.plantprotectionrobot.DataProcessing.PermisionUtils.initLocationPermission;
+import static com.example.tank.plantprotectionrobot.DataProcessing.PermisionUtils.verifyStoragePermissions;
 
 /*
  @总控台界面
@@ -94,24 +98,10 @@ public class CenterControlActivity extends AppCompatActivity {
         setOnClick();//按键监听
 
     }
-    private void InitBle(){
-
-        final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
-
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            Toast.makeText(this, "手机不支持蓝牙", Toast.LENGTH_SHORT).show();
-        }
-        //开启蓝牙
-        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
-            mBluetoothAdapter.enable();
-        }
-
-    }
 
     @Override
     protected void onPostResume() {
-        InitBle();//初始化蓝牙
+
         startService(intentSev); //启动蓝牙后台
         super.onPostResume();
     }
@@ -224,4 +214,10 @@ public class CenterControlActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onStart() {
+        verifyStoragePermissions(this) ;//针对6.0以上版本做权限适配
+        initLocationPermission(this);
+        super.onStart();
+    }
 }

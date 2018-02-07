@@ -34,6 +34,7 @@ import com.example.tank.plantprotectionrobot.NewMapActivity;
 import com.example.tank.plantprotectionrobot.R;
 
 import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -143,10 +144,12 @@ public class ConnectRTK extends Fragment {
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
 
                 MappingRodNumber = spinner1.getSelectedItem().toString();
+
+                Log.d(TAG,"选择测绘杆"+i);
                 //避开第一次选择触发
                 if(true == selectedFirst){
-                    selectedFirst =false;
 
+                    selectedFirst =false;
                 }else{
                     if (binder != null) {
                         if(mBleDeviceList.size() > 0) {
@@ -155,9 +158,13 @@ public class ConnectRTK extends Fragment {
                             binder.connectBle(mBleDeviceList.get(i),false);
 
                         }else {
-                            binder.startScanBle();
+                            if (binder != null) {
+                                binder.startScanBle();
+                            }
+
                         }
                     }
+
                 }
             }
             @Override
@@ -241,17 +248,21 @@ public class ConnectRTK extends Fragment {
             switch(msg.what){
                 case  BLE_SCAN_ON:
 
+                    Log.d(TAG,"ConnectRTK搜索到蓝牙："+mBleDeviceList.size());
                    if (mBleDeviceList.size()>0) {
-                       String[]  listRTK =  new String[mBleDeviceList.size()];
+                       String[] listRTK = new String[mBleDeviceList.size()];
                        for (int i = 0; i < mBleDeviceList.size(); i++) {
                            listRTK[i] = mBleDeviceList.get(i).getName().toString();
+                        //   Log.d(TAG,listRTK[i]);
                        }
-                       selectedFirst =true;
                        //填充到spinner
                        MySpinnerAdapter adapter;
                        adapter = new MySpinnerAdapter(getActivity(),
                                android.R.layout.simple_spinner_item, listRTK);
                        spinner1.setAdapter(adapter);
+
+                       selectedFirst = true;
+
                    }
                     break;
                 case BLE_SCAN_OFF:
@@ -267,6 +278,7 @@ public class ConnectRTK extends Fragment {
                         spinner1.setAdapter(adapter);
               //      Toast.makeText(getActivity(), "没有搜索到测绘杆" ,
                //             Toast.LENGTH_SHORT).show();
+                    selectedFirst = true;
                     break;
                 case BLE_DATA_ON:
 
@@ -283,6 +295,7 @@ public class ConnectRTK extends Fragment {
                             android.R.layout.simple_spinner_item, list);
                     spinner1.setAdapter(adapter);
                     ble_connectFlag =false;
+                    selectedFirst = true;
                     break;
                 case BLE_CONNECT_ON:
                     ble_connectFlag =true;
@@ -319,7 +332,8 @@ public class ConnectRTK extends Fragment {
                     if (bleDeviceList.size()>0) {
                         mBleDeviceList.clear();
                         mBleDeviceList.addAll(bleDeviceList.subList(0, bleDeviceList.size()));
-                        Log.d(TAG, "查找到蓝牙个数：" + mBleDeviceList.size());
+
+                    //    Log.d(TAG, "查找到蓝牙个数：" + mBleDeviceList.size());
                         //发送通知
                         handler.sendEmptyMessage( BLE_SCAN_ON);
                     }

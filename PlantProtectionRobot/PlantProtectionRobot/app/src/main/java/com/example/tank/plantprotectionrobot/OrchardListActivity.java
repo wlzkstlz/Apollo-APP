@@ -157,9 +157,12 @@ public class OrchardListActivity extends AppCompatActivity {
                         if(name.indexOf(provinceName) !=-1 && name.indexOf(cityName) !=-1
                                 && name.indexOf(countyName) !=-1 && name.indexOf(twonName) !=-1 ){
                             String b[]= name.split(",");
-                            if(b.length>0) {
-                                seletUser.add(b[1]);
-                            //    Log.d(TAG, "解析成功：" + name);
+
+                            if(b !=null) {
+                                if (b.length > 0) {
+                                    seletUser.add(b[1]);
+                                    //    Log.d(TAG, "解析成功：" + name);
+                                }
                             }
                         }
 

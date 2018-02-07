@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.LocationManager;
 import android.media.MediaPlayer;
 import android.nfc.Tag;
 import android.os.Binder;
@@ -109,8 +110,10 @@ public class BLEService extends Service {
         //开始搜索蓝牙
         public void startScanBle(){
             //开启蓝牙
-            if (mBluetoothAdapter != null || !mBluetoothAdapter.isEnabled()) {
-                mBluetoothAdapter.enable();
+            if (mBluetoothAdapter != null) {
+                 if(!mBluetoothAdapter.isEnabled()) {
+                     mBluetoothAdapter.enable();
+                 }
             }
 
             mBleDeviceList.clear();
@@ -209,7 +212,7 @@ public class BLEService extends Service {
                                     dataCallback.BleStateChanged(msgWhat);
                                 }
                                 msgWhat=0;
-                                Log.d(TAG,"BEL蓝牙断开连接");
+
                                 break;
                            case BLE_CONNECT_ON: //蓝牙连接成功，回调
 
@@ -292,8 +295,7 @@ public class BLEService extends Service {
                 Toast.makeText(this, "手机不支持蓝牙", Toast.LENGTH_SHORT).show();
             }else {
 
-                scanLeDevice(true);
-
+             //   scanLeDevice(true);
                 //初始化
                 mBLE = new BluetoothLeClass(this);
                 if (!mBLE.initialize()) {
@@ -310,7 +312,6 @@ public class BLEService extends Service {
             }
 
         }
-
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -353,12 +354,38 @@ public class BLEService extends Service {
                 @Override
                 public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
 
+                    String check="";
+                    //根据不同功能筛选指定名字的蓝牙
+                    switch(bleWorkTpye) {
+                        case SERV_BLE_MAPPING_CONNECT:
+                            check = "[RMHB]\\d{5}";
+                            break;
+                    }
+                    String bleName = device.getName().toString();
+                    if (bleName.matches(check)) {
+                        if (mBleDeviceList.size() > 0) {
+                            boolean flag = false;
+                            int len = mBleDeviceList.size();
+                            for (int i = 0; i < len; i++) {
+                                if (device.getName().toString().equals(mBleDeviceList.get(i).getName().toString())) {
+                                    flag = true;
+                                }
+                            }
+                            if (flag == false) {
+                                mBleDeviceList.add(device);
+                            }
+                        } else {
                             mBleDeviceList.add(device);
-                            msgWhat = BLE_SCAN_ON;
-                    //       Log.d(TAG, "扫描到设备" + mBleDeviceList.get(mBleDeviceList.size()-1).getName().toString()+" ID"+
-                     //               mBleDeviceList.get(mBleDeviceList.size()-1).getAddress().toString() +"->"+ mBleDeviceList.size());
+                        }
+                        msgWhat = BLE_SCAN_ON;
+                    }else{
+                        Log.d(TAG,"蓝牙搜索名字匹配失败");
+                    }
+                    //        Log.d(TAG, "扫描到设备" + mBleDeviceList.get(mBleDeviceList.size()-1).getName().toString()+" ID"+
+                    //               mBleDeviceList.get(mBleDeviceList.size()-1).getAddress().toString() +"->"+ mBleDeviceList.size());
+
                 }
-    };
+            };
 
     private void scanLeDevice(final boolean enable) {
         if (enable) {
@@ -384,7 +411,6 @@ public class BLEService extends Service {
             if(mBluetoothAdapter !=null) {
                 mBluetoothAdapter.stopLeScan(mLeScanCallback);
             }
-
         }
     }
 
@@ -408,7 +434,6 @@ public class BLEService extends Service {
         //    mBLE.close();
             mCharacteristic = null;
       //      isConnectedBle=null;
-
         }
     };
 

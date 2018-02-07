@@ -1,10 +1,6 @@
 package com.example.tank.plantprotectionrobot;
 
 
-import android.Manifest;
-import android.app.Activity;
-import android.app.PendingIntent;
-import android.app.Service;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
@@ -13,19 +9,10 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Paint;
-import android.graphics.Point;
 import android.graphics.PointF;
-import android.location.Criteria;
-import android.location.Location;
-import android.location.LocationManager;
-import android.net.Uri;
-import android.nfc.Tag;
-import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
-import android.os.Vibrator;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -44,16 +31,11 @@ import com.amap.api.location.AMapLocationClient;
 import com.amap.api.location.AMapLocationClientOption;
 import com.amap.api.location.AMapLocationListener;
 import com.example.tank.plantprotectionrobot.BLE.BLEService;
-import com.example.tank.plantprotectionrobot.ChoicePage.ConnectRTK;
-import com.example.tank.plantprotectionrobot.ChoicePage.MySpinnerAdapter;
 import com.example.tank.plantprotectionrobot.DataProcessing.GpsPoint;
-import com.example.tank.plantprotectionrobot.DataProcessing.LocationUtils;
 import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -393,24 +375,29 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
             public void onClick(View view) {
 
                 if(false == detMapping) {
-                    //获取文件路径
-                    String UserFileUsing = setinfo.getString("UserFileUsing", null);
-                    String fileDir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
-                    //保存测绘类型
-                    String mappingType = setinfo.getString("MappingType", "L_");
-                    //   Log.d("debug001",fileDir +mappingType);
-                    Log.d(TAG, "测绘点数：" + mappingList.size());
 
-                    if (mappingList.size() > 0) {
-                        saveMappingDataAll(mappingList,bPoint,fileDir, mappingType);
-                        //     setMappingLength(fileDir,mappingType,1010);
-                        finish();
-                    } else {
-                        Toast.makeText(getApplicationContext(), "测绘点太少，无法形成测绘路径",
-                                Toast.LENGTH_SHORT).show();
-                        finish();
-                    }
+                    new Thread(){
+                        @Override
+                        public void run() {
 
+                            if (mappingList.size() > 0) {
+
+                                //获取文件路径
+                                String UserFileUsing = setinfo.getString("UserFileUsing", null);
+                                String fileDir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
+                                //保存测绘类型
+                                String mappingType = setinfo.getString("MappingType", "L_");
+                                //   Log.d("debug001",fileDir +mappingType);
+                                Log.d(TAG, "测绘点数：" + mappingList.size());
+                                saveMappingDataAll(mappingList,bPoint,fileDir, mappingType);
+                                //     setMappingLength(fileDir,mappingType,1010);
+
+                            }
+                            super.run();
+                        }
+                    }.start();
+
+                    finish();
                     //停止播放音乐
                     if(vibrationAndMusic.getMusicState()) {
                         vibrationAndMusic.playmusic(false);
@@ -433,8 +420,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                             saveBtn.setText("保存");
                             detMapping = false;
                             eraseBtn.setVisibility(View.VISIBLE);
-                            exitBtn.setVisibility(View.INVISIBLE);
-
+                            exitBtn.setVisibility(View.VISIBLE);
 
                             //关闭手机振动
                             if(vibrationAndMusic != null) {
@@ -537,50 +523,57 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
      */
     private void readMappingFromSD(){
 
-        String mappingType = setinfo.getString("MappingType", "L_");
-   //     Log.d(TAG,"测试果园数据" + mappingType);
-        //如果是测绘果园路径，则要显示主干道信息
-        if(mappingType.equals("L_")){
+       new Thread(){
+           @Override
+           public void run() {
 
-            //获取文件路径
-            String UserFileUsing = setinfo.getString("UserFileUsing",null);
-            String filedir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
+               String mappingType = setinfo.getString("MappingType", "L_");
+               //     Log.d(TAG,"测试果园数据" + mappingType);
+               //如果是测绘果园路径，则要显示主干道信息
+               if(mappingType.equals("L_")){
 
-            File[] files = getMappingList(filedir);
-            int[] len=new int[2];
+                   //获取文件路径
+                   String UserFileUsing = setinfo.getString("UserFileUsing",null);
+                   String filedir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
 
-            if(files != null ) {
-                GpsPoint bpoint=new GpsPoint();
+                   File[] files = getMappingList(filedir);
+                   int[] len=new int[2];
 
-                ArrayList<MappingGroup> gpslist = new ArrayList<MappingGroup>();
-                getMappingHead(filedir+File.separator+files[0].getName(),len,bpoint);
+                   if(files != null ) {
+                       GpsPoint bpoint=new GpsPoint();
 
-                getMappingData(filedir+File.separator+files[0].getName(),gpslist,len[0]);
+                       ArrayList<MappingGroup> gpslist = new ArrayList<MappingGroup>();
+                       getMappingHead(filedir+File.separator+files[0].getName(),len,bpoint);
 
-                //当前默认只有一个主干道
-                Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
+                       getMappingData(filedir+File.separator+files[0].getName(),gpslist,len[0]);
 
-                for(int j=0;j<gpslist.size();j++){
-                    GpsPoint point=new GpsPoint();
-                    //转化为画布坐标
-                 //   point.x = screenPoint.x/2+(gpslist.get(j).longitude*Math.cos(gpslist.get(j).latitude * Math.PI / 180) - bPoint.x*Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                 //   point.y = screenPoint.y/2+(bPoint.y -gpslist.get(j).latitude) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
+                       //当前默认只有一个主干道
+                       Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
 
-                    point.x  = screenPoint.x / 2+ ((((double)gpslist.get(j).longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                    //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                    point.y= screenPoint.y / 2 + (bPoint.y - ((double)gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * ((double) screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                       for(int j=0;j<gpslist.size();j++){
+                           GpsPoint point=new GpsPoint();
+                           //转化为画布坐标
+                           //   point.x = screenPoint.x/2+(gpslist.get(j).longitude*Math.cos(gpslist.get(j).latitude * Math.PI / 180) - bPoint.x*Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                           //   point.y = screenPoint.y/2+(bPoint.y -gpslist.get(j).latitude) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
+
+                           point.x  = screenPoint.x / 2+ ((((double)gpslist.get(j).longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                           //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
+                           point.y= screenPoint.y / 2 + (bPoint.y - ((double)gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * ((double) screenPoint.y * GPS_DIS / MAPMAX_DIS);
 
 
-                    mListPointM.add(point);
-                    //      Log.d(TAG, "测绘点:"+point.x +" "+point.y+" "+point.z);
+                           mListPointM.add(point);
+                           //      Log.d(TAG, "测绘点:"+point.x +" "+point.y+" "+point.z);
 
-                    Log.d(TAG, "RTK状态：" +gpslist.get(j).rtkState +  " 经度：" + gpslist.get(j).longitude + " 纬度：" +gpslist.get(j).latitude + " 海拔：" + gpslist.get(j).altitude + " roll：" + gpslist.get(j).roll
-                            + " pitch：" + gpslist.get(j).pitch + " 方向：" + gpslist.get(j).yaw+ " 周：" + gpslist.get(j).GPSTime_weeks+ " 时间：" + gpslist.get(j).GPSTime_ms);
+                           Log.d(TAG, "RTK状态：" +gpslist.get(j).rtkState +  " 经度：" + gpslist.get(j).longitude + " 纬度：" +gpslist.get(j).latitude + " 海拔：" + gpslist.get(j).altitude + " roll：" + gpslist.get(j).roll
+                                   + " pitch：" + gpslist.get(j).pitch + " 方向：" + gpslist.get(j).yaw+ " 周：" + gpslist.get(j).GPSTime_weeks+ " 时间：" + gpslist.get(j).GPSTime_ms);
 
-                }
+                       }
 
-            }
-        }
+                   }
+               }
+               super.run();
+           }
+       }.start();
     }
     /***
      * 初始高德地图
