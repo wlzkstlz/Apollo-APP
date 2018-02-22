@@ -6,6 +6,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.TextView;
 
@@ -22,16 +24,19 @@ public class ListviewAdapterTwo extends BaseAdapter {
     private Context context;
     public ArrayList<Integer> checkedNum = new ArrayList<>();
 
-    private final String DEBUG_TAG = "MyListViewAdapter调试";
+    private final String DEBUG_TAG = "Tank001";
 
-    public final class ListItemView{                //自定义控件集合
+    static public  class ListItemView{                //自定义控件集合
 
-        public RadioButton radioButton;
+        public LinearLayout linearLayout;
+    //    public RadioButton radioButton;
+        public CheckBox checkBox;
         public TextView textView1;
         public TextView textView2;
         public TextView textView3;
         public TextView textView4;
         public TextView textView5;
+        public int robotPosition;
 
     }
 
@@ -40,15 +45,13 @@ public class ListviewAdapterTwo extends BaseAdapter {
         this.context=context;
         this.data=data;
         this.layoutInflater= LayoutInflater.from(context);
-        checkedNum.add(data.size());
+
         for (int i=0;i<data.size();i++){
             checkedNum.add(0);
         }
-        Log.i(DEBUG_TAG,"listview元素个数checkedNum.size() ="+checkedNum.size());
+   //     Log.i(DEBUG_TAG,"listview元素个数checkedNum.size() ="+checkedNum.size());
     }
-    public ArrayList<Integer> getCheckedNum(){
-        return checkedNum;
-    }
+
     @Override
     public int getCount() {
 
@@ -71,23 +74,46 @@ public class ListviewAdapterTwo extends BaseAdapter {
 
     @Override
     public View getView(final int position, View convertView, final ViewGroup parent) {
-        ListItemView listItemView = null;
-
-        listItemView = new ListItemView();
+      //  ListItemView listItemView = null;
+        final ListItemView listItemView = new ListItemView();
         convertView=layoutInflater.inflate(R.layout.center_item2, null);
-        listItemView.radioButton = (RadioButton)convertView.findViewById(R.id.radioButton1);
+        listItemView.linearLayout=(LinearLayout)convertView.findViewById(R.id.linearLayout1);
+     //   listItemView.radioButton = (RadioButton)convertView.findViewById(R.id.radioButton1);
+
+        listItemView.checkBox = (CheckBox)convertView.findViewById(R.id.checkBox1);
         listItemView.textView1 = (TextView)convertView.findViewById(R.id.textView1);
         listItemView.textView2 = (TextView)convertView.findViewById(R.id.textView2);
         listItemView.textView3 = (TextView)convertView.findViewById(R.id.textView3);
         listItemView.textView4 = (TextView)convertView.findViewById(R.id.textView4);
         listItemView.textView5 = (TextView)convertView.findViewById(R.id.textView5);
+        listItemView.robotPosition = position;
 
+        listItemView.checkBox.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(listItemView.checkBox.isChecked()){
+                    checkedNum.set(listItemView.robotPosition,1);//选中置标志位
+                }else{
+                    checkedNum.set(listItemView.robotPosition,0);//选中置标志位
+                }
+            }
+        });
+
+/*
         listItemView.radioButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
 
+              Log.d(DEBUG_TAG,"ListviewAdapterTwo要删除的是"+listItemView.robotPosition);
+              if(listItemView.radioButton.isChecked()){
+                  listItemView.radioButton.setChecked(false);
+              }else{
+                  listItemView.radioButton.setChecked(true);
+              }
+
             }
         });
+*/
         //绑定数据
         listItemView.textView1.setText((String)data.get(position).get("mac_number"));
         listItemView.textView2.setText((String)data.get(position).get("mac_task"));
@@ -97,4 +123,6 @@ public class ListviewAdapterTwo extends BaseAdapter {
 
         return convertView;
     }
+
+
 }

@@ -27,17 +27,13 @@ public class JobDataActivity extends AppCompatActivity {
         centerBtn = (Button)findViewById(R.id.button1);
         listView = (ListView)findViewById(R.id.listJobData);
 
-        dataList = getData();
-        listView.setAdapter(new ListviewAdapterOne(this, dataList));
-
-    //    final Intent intent = new Intent(this,CenterControlActivity.class);
-
+    //    dataList = getData();
+      //  listView.setAdapter(new ListviewAdapterOne(this, dataList));
 
 
         centerBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-             //   startActivity(intent);
                 finish();
             }
         });

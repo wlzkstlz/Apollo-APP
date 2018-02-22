@@ -118,6 +118,7 @@ public class ConnectRTK extends Fragment {
     @Override
     public void setUserVisibleHint(boolean isVisibleToUser) {
         super.setUserVisibleHint(isVisibleToUser);
+        selectedFirst =true;
         if (isVisibleToUser) {//相当于Fragment的onResume
 
             //绑定蓝牙服务
@@ -145,10 +146,8 @@ public class ConnectRTK extends Fragment {
 
                 MappingRodNumber = spinner1.getSelectedItem().toString();
 
-                Log.d(TAG,"选择测绘杆"+i);
                 //避开第一次选择触发
                 if(true == selectedFirst){
-
                     selectedFirst =false;
                 }else{
                     if (binder != null) {
@@ -156,6 +155,7 @@ public class ConnectRTK extends Fragment {
                             //停止扫描蓝牙
                             binder.stopScanBle();
                             binder.connectBle(mBleDeviceList.get(i),false);
+                            Log.d(TAG,"选择测绘杆"+i);
 
                         }else {
                             if (binder != null) {
@@ -219,11 +219,14 @@ public class ConnectRTK extends Fragment {
                     infoEditor.commit();
 
                     startActivity(intentMap);
+
                 }else {
                     Toast.makeText(getActivity(), "未连接测绘，无法测绘" ,
                             Toast.LENGTH_SHORT).show();
 
                 }
+
+
 
             }
         });
@@ -255,13 +258,12 @@ public class ConnectRTK extends Fragment {
                            listRTK[i] = mBleDeviceList.get(i).getName().toString();
                         //   Log.d(TAG,listRTK[i]);
                        }
+                       selectedFirst = true;
                        //填充到spinner
                        MySpinnerAdapter adapter;
                        adapter = new MySpinnerAdapter(getActivity(),
                                android.R.layout.simple_spinner_item, listRTK);
                        spinner1.setAdapter(adapter);
-
-                       selectedFirst = true;
 
                    }
                     break;
@@ -321,10 +323,10 @@ public class ConnectRTK extends Fragment {
             //绑定后执行动作
             if(binder !=null){
                 binder.startScanBle();//搜索蓝牙
-                binder.setBleWorkTpye(BLEService.SERV_BLE_MAPPING_CONNECT);
+                binder.setBleWorkTpye(BLEService.BLE_MAP_CONECT);
 
             }
-            binder.getService().setDataCallback(new BLEService.DataCallback() {
+            binder.getService().setMappingCallback(new BLEService.MappingCallback() {
                 //执行回调函数
                 @Override
                 public void BleScanChanged(ArrayList<BluetoothDevice> bleDeviceList) {

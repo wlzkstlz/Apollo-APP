@@ -274,6 +274,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                     if(vibrationAndMusic.getVibrate()){
                                         vibrationAndMusic.stopVibration();
                                     }
+                                    Log.d(TAG,"NewMapActivity->Dialog按键触发");
                                 }
                             });
 
@@ -281,6 +282,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         }
 
         // 显示
+        msgDialog.setCancelable(false);
         msgDialog.show();
 
     }
@@ -841,6 +843,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                 mListPointL.add(gpsPoint);
                                 detFlag = mListPointL.size() - 1;
 
+
                                 //提示信息处理
                                 if(vibrationAndMusic.getVibrate()) {
                                     vibrationAndMusic.stopVibration();
@@ -998,11 +1001,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
             //开启，设置Ble工作类型
             if(binder != null){
-                binder.setBleWorkTpye(BLEService.SERV_BLE_MAPPING);
-
+                binder.setBleWorkTpye(BLEService.BLE_MAP_CONECT);
             }
 
-            binder.getService().setDataCallback(new BLEService.DataCallback() {
+            binder.getService().setMappingCallback(new BLEService.MappingCallback() {
                 //执行回调函数
                 @Override
                 public void BleScanChanged(ArrayList<BluetoothDevice> bleDeviceList) {

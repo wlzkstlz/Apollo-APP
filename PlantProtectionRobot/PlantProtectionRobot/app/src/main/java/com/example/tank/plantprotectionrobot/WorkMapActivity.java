@@ -88,5 +88,4 @@ public class WorkMapActivity extends AppCompatActivity {
         spinner1.setAdapter(adapter);
     }
 
-
 }

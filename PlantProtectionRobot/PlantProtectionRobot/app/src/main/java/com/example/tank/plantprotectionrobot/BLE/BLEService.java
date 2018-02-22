@@ -21,6 +21,10 @@ import android.widget.Toast;
 
 import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
 import com.example.tank.plantprotectionrobot.R;
+import com.example.tank.plantprotectionrobot.Robot.HeatDataMsg;
+import com.example.tank.plantprotectionrobot.Robot.PollingManagement;
+import com.example.tank.plantprotectionrobot.Robot.RobotManagement;
+import com.example.tank.plantprotectionrobot.Robot.TankRobot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,21 +47,23 @@ public class BLEService extends Service {
     //接收串口数据标志
 
     //蓝牙扫描时间
-    private final int BLE_CONNECT_ON = 20; //蓝牙连接成功
-    private final int BLE_CONNECT_OFF =21;//练呀连接失败
-    private final int BLE_SCAN_OFF = 11;
-    private final int BLE_SCAN_ON = 10; //扫描到蓝牙
-    private final int BLE_DATA_ON = 30; //接收到数据
-    private final int BLE_CONNECTED=40;//当前正在连接的蓝牙反馈
+    public static final int BLE_CONNECT_ON = 20; //蓝牙连接成功
+    public static final int BLE_CONNECT_OFF =21;//练呀连接失败
+    public static final int BLE_SCAN_OFF = 11;
+    public static final int BLE_SCAN_ON = 10; //扫描到蓝牙
+    public static final int BLE_CONNECTED=40;//当前正在连接的蓝牙反馈
 
     private final int SCAN_PERIOD =5000;//蓝牙搜索时间
 
     public static final int  SERV_BLE_NULL = 0;//不做任何事
-    public static final int SERV_BLE_MAPPING = 10;//测绘蓝牙，测绘界面
-    public static final int SERV_BLE_MAPPING_CONNECT = 11;//测绘蓝牙,连接界面
-    public static final int SERV_BLE_HANDLE = 20;//手柄蓝牙
-    public static final int SERV_BLE_MASTER = 30;//算法板蓝牙
-    public static final int SERV_BLE_BASIC = 40;//基站蓝牙
+
+
+    //蓝牙工作类型ID
+    public static final int BLE_MAP_CONECT=10; //测绘蓝牙
+    public static final int BLE_HANDLE_CONECT=20;//手柄蓝牙
+    public static final int BLE_ROBOT_CONECT=30;//算法板蓝牙
+    public static final int BLE_BASIC_CONECT=40;//基站蓝牙
+    public static final int BLE_NO_CONECT = 0;//没有蓝牙连接
 
     //蓝牙
     /**搜索BLE终端*/
@@ -66,30 +72,29 @@ public class BLEService extends Service {
     private  BluetoothLeClass mBLE;
     /**蓝牙管理器**/
     private BluetoothManager bluetoothManager;
-    private BluetoothDevice isConnectedBle;
 
-    private ArrayList<BluetoothDevice> mBleDeviceList = new ArrayList<BluetoothDevice>();
     private final Handler scanHandler = new Handler();
-    private final Handler handler = new Handler();
-
-    public static BluetoothGattCharacteristic mCharacteristic;    //当前连接的
 
     private final static String UUID_KEY_DATA = "0000ffe1-0000-1000-8000-00805f9b34fb";
     private final static String UUID_KEY_CAR = "0000fff1-0000-1000-8000-00805f9b34fb";//车上用的蓝牙
 
-    private int revCount =0;
-    private boolean revStart =false;
-    private byte[] revBuf = new byte[200];
-    private int revWaitTime = 0; //接收等待时间，超时侧重新开始接收数据，防止从中间截断数据
 
-    //**蓝牙工作工况**//
-    private int bleWorkTpye =0;
+    private MappingCallback mappingCallback = null;
+    private RobotWorkingCallback robotWorkingCallback =null;
+
+    //蓝牙信息处理类
+    private WorkBleGroup workBleGroup = new WorkBleGroup();
+    //分时轮询
+    private PollingManagement pollingManagement = new PollingManagement();
+    //机器人管理类
+    private RobotManagement robotManagement = new RobotManagement(pollingManagement,workBleGroup,robotWorkingCallback);
 
     // 解绑Servcie调用该方法
     @Override
     public boolean onUnbind(Intent intent) {
         Log.d(TAG,"--onUnbind()--");
-        dataCallback = null;//解除绑定后清除回调类
+        mappingCallback = null;//解除绑定后清除回调类
+        robotWorkingCallback =null;
         return super.onUnbind(intent);
     }
 
@@ -107,6 +112,40 @@ public class BLEService extends Service {
         public  BLEService getService() {
             return BLEService.this;
         }
+
+        /***
+         * 获取在线的机器人列表
+         * @return
+         */
+        public  ArrayList<TankRobot> getRobotList(){
+            return robotManagement.workRobotList;
+        }
+
+        /***
+         * @param workRobot 当前工作的机器人
+         */
+        public void changeWorkRobotList(ArrayList<TankRobot> workRobot){
+            robotManagement.workRobotList=workRobot;
+        }
+        /*** 添加机器人
+         * @param 新添加的机器人
+         */
+        public void addWorkRobot(TankRobot workRobot){
+            robotManagement.workRobotList.add(workRobot);
+        }
+        /***
+         *
+         * @param type 1连接测绘蓝牙，2连接手柄蓝牙，3连接算法板蓝牙 4连接基站蓝牙
+         */
+        public void setBleWorkTpye(int type){
+            mappingCallback = null;
+            robotWorkingCallback = null;
+            //重新连接时，先清除之前的回调函数
+            workBleGroup.isWorkingId = type;
+
+            Log.d(TAG," workBleGroup.isWorkingId ="+type);
+        }
+
         //开始搜索蓝牙
         public void startScanBle(){
             //开启蓝牙
@@ -115,8 +154,7 @@ public class BLEService extends Service {
                      mBluetoothAdapter.enable();
                  }
             }
-
-            mBleDeviceList.clear();
+            workBleGroup.findBleList.clear();
             scanLeDevice(true);
         }
         //停止搜索蓝牙
@@ -133,11 +171,10 @@ public class BLEService extends Service {
             if(mBLE !=null) {
                 mBLE.disconnect();
                 mBLE.close();
-                isConnectedBle=null;
+                workBleGroup.isWorkingId = 0;
             }
         }
         //开始连接蓝牙
-
         /***
          *
          * @param bluetoothDevice
@@ -150,17 +187,61 @@ public class BLEService extends Service {
                     if (mBluetoothAdapter.checkBluetoothAddress(bluetoothDevice.getAddress())) {
 
                         mBLE.connect(bluetoothDevice.getAddress());
-                        isConnectedBle = bluetoothDevice;
+                        switch (workBleGroup.isWorkingId){
+                            case BLE_HANDLE_CONECT:
+                                workBleGroup.bleHandleCneted=bluetoothDevice;
+                                workBleGroup.bleRobotCneted=null;
+                                workBleGroup.bleMapCneted=null;
+                                workBleGroup.bleBasicCneted=null;
+                                break;
+                            case BLE_BASIC_CONECT:
+                                workBleGroup.bleHandleCneted=null;
+                                workBleGroup.bleRobotCneted=null;
+                                workBleGroup.bleMapCneted=null;
+                                workBleGroup.bleBasicCneted=bluetoothDevice;
+                                break;
+                            case BLE_MAP_CONECT:
+                                workBleGroup.bleHandleCneted=null;
+                                workBleGroup.bleRobotCneted=null;
+                                workBleGroup.bleMapCneted=bluetoothDevice;
+                                workBleGroup.bleBasicCneted=null;
+                                break;
+                            case BLE_ROBOT_CONECT:
+                                workBleGroup.bleHandleCneted=null;
+                                workBleGroup.bleRobotCneted=bluetoothDevice;
+                                workBleGroup.bleMapCneted=null;
+                                workBleGroup.bleBasicCneted=null;
+                                break;
+                        }
+             //           workBleGroup.isConnectedBle = bluetoothDevice;
+
                         Log.d(TAG, "连接蓝牙：" + bluetoothDevice.toString());
                     } else {
                         return false;
                     }
                 }else {
+                    /*
                     //若参数
-                    if(isConnectedBle !=null){
-                        mBLE.connect(isConnectedBle.getAddress());
+                    if (workBleGroup.isConnectedBle != null) {
+                        mBLE.connect(workBleGroup.isConnectedBle.getAddress());
                         Log.d(TAG, "接收蓝牙连接指令连接蓝牙");
                     }
+                    */
+                    switch (workBleGroup.isWorkingId) {
+                        case BLE_HANDLE_CONECT:
+                            mBLE.connect(workBleGroup.bleHandleCneted.getAddress());
+                            break;
+                        case BLE_BASIC_CONECT:
+                            mBLE.connect(workBleGroup.bleBasicCneted.getAddress());
+                            break;
+                        case BLE_MAP_CONECT:
+                            mBLE.connect(workBleGroup.bleMapCneted.getAddress());
+                            break;
+                        case BLE_ROBOT_CONECT:
+                            mBLE.connect(workBleGroup.bleRobotCneted.getAddress());
+                            break;
+                    }
+
                 }
             }else{
                 return false;
@@ -168,100 +249,90 @@ public class BLEService extends Service {
             return true;
         }
 
-        /***
-         *
-         * @param type 1连接测绘蓝牙，2连接手柄蓝牙，3连接算法板蓝牙 4连接基站蓝牙
-         */
-        public void setBleWorkTpye(int type){
-            bleWorkTpye =type;
-            Log.d(TAG,"setBleWorkTpye="+type);
-        }
     }
 
     // 创建Service时调用该方法，只调用一次
-    double myPiont=0;
     @Override
     public void onCreate() {
         super.onCreate();
 
         Log.d(TAG,"--onCreate()--");
-
         serviceRunning = true;
-
         new Thread() {
             @Override
             public void run() {
-
                 while (serviceRunning) {
-
-                    if (dataCallback != null && SERV_BLE_NULL !=bleWorkTpye) {
+                    if (mappingCallback != null) {
 
                         switch(msgWhat){
                             case BLE_SCAN_ON:
-                                ArrayList<BluetoothDevice> mBleList =new ArrayList<BluetoothDevice>();
-                                mBleList.addAll(mBleDeviceList.subList(0,mBleDeviceList.size()));
-                                if (dataCallback != null) {
-                                    dataCallback.BleScanChanged(mBleList);
+                                if(workBleGroup.findBleList.size()>0) {
+                                    ArrayList<BluetoothDevice> mBleList = new ArrayList<BluetoothDevice>();
+                                    mBleList.addAll(workBleGroup.findBleList.subList(0, workBleGroup.findBleList.size()));
+                                    if (mappingCallback != null) {
+                                        mappingCallback.BleScanChanged(mBleList);
+                                    }
+                                    //       Log.d(TAG, "扫描到设备" + mBleDeviceList.get(mBleDeviceList.size()-1).getName().toString()+" ID"+
+                                    //               mBleDeviceList.get(mBleDeviceList.size()-1).getAddress().toString() +"->"+ mBleDeviceList.size());
+                                    if (robotWorkingCallback != null) {
+                                        robotWorkingCallback.BleScanChanged(mBleList);
+                                    }
                                 }
-                               //       Log.d(TAG, "扫描到设备" + mBleDeviceList.get(mBleDeviceList.size()-1).getName().toString()+" ID"+
-                               //               mBleDeviceList.get(mBleDeviceList.size()-1).getAddress().toString() +"->"+ mBleDeviceList.size());
-                               msgWhat=0;
+                                msgWhat=0;
                                break;
-                            case BLE_SCAN_OFF:
-                                if (dataCallback != null) {
-                                    dataCallback.BleStateChanged(msgWhat);
+                            case BLE_SCAN_OFF://没有扫描到
+                                if (mappingCallback != null) {
+                                    mappingCallback.BleStateChanged(msgWhat);
+                                }
+
+                                if(robotWorkingCallback != null){
+                                   robotWorkingCallback.BleStateChanged(msgWhat);
                                 }
                                 msgWhat=0;
 
                                 break;
                            case BLE_CONNECT_ON: //蓝牙连接成功，回调
 
-                               if (dataCallback != null) {
-                                   dataCallback.BleStateChanged(msgWhat);
+                               if (mappingCallback != null) {
+                                   mappingCallback.BleStateChanged(msgWhat);
+                               }
+
+                               if(robotWorkingCallback != null){
+                                  robotWorkingCallback.BleStateChanged(msgWhat);
                                }
                                msgWhat=0;
                                break;
                             case BLE_CONNECT_OFF: //蓝牙连接失败，返回
-                                if (dataCallback != null) {
-                                    dataCallback.BleStateChanged(msgWhat);
+                                if (mappingCallback != null) {
+                                    mappingCallback.BleStateChanged(msgWhat);
+                                }
+                                if(robotWorkingCallback != null){
+                                   robotWorkingCallback.BleStateChanged(msgWhat);
                                 }
                                 msgWhat=0;
                                 break;
 
                             case BLE_CONNECTED:
-                                if (dataCallback != null && isConnectedBle !=null) {
-                                    dataCallback.BleConnectedDevice(isConnectedBle);
+
+                                //返回测绘正在连接的蓝牙
+                                if (mappingCallback != null && workBleGroup.isWorkingId == BLE_MAP_CONECT) {
+
+                                    mappingCallback.BleConnectedDevice(workBleGroup.bleMapCneted);
                                 }
+                                //返回遥控器蓝牙状态
+                                if(robotWorkingCallback !=null){
+                                    robotWorkingCallback.BleConnectedDevice(workBleGroup.bleHandleCneted);
+                                }
+
                                 msgWhat=0;
                                 break;
                             default:
                                 break;
                         }
 
-                        if(revWaitTime>0){
-                            revWaitTime--; //RTK传输数据周期是100ms，超过50ms还没接收完侧认为数据被截断
-                        }
                     }
-
-                    /*
-                        myPiont=myPiont+0.00000001;
-                        MappingGroup rtkMap=new MappingGroup();
-                        rtkMap.rtkState=3;   //RTK转台
-                        rtkMap.GPSTime_ms = 100000; //时间
-                 //       rtkMap.longitude = (int) ((113.894753*MappingGroup.PI/180)*MappingGroup.INM_LON_LAT_SCALE+myPiont); //经度
-                //        rtkMap.latitude =  (int) ((22.958744*MappingGroup.PI/180)*MappingGroup.INM_LON_LAT_SCALE+myPiont); //纬度
-                        rtkMap.longitude = (int) ((1.98783844+myPiont)*MappingGroup.INM_LON_LAT_SCALE); //经度
-                        rtkMap.latitude =  (int) ((0.40070567+myPiont)*MappingGroup.INM_LON_LAT_SCALE); //纬度
-                        rtkMap.altitude = (float) 49.3; //海拔
-                        rtkMap.yaw = (float) (myPiont*100000000); //方向
-                        //若有应用绑定服务，发送数据到该应用
-                        if(dataCallback != null) {
-                            dataCallback.BleDataChanged(rtkMap);
-                        }
-                       */
                     try {
                         sleep(10); //延时
-                 //     sleep(100); //测试用延时
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -275,6 +346,81 @@ public class BLEService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG,"--onStartCommand()--");
       //  data = intent.getStringExtra("data");
+       openBle();
+
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+    // 退出或者销毁时调用该方法
+    @Override
+    public void onDestroy() {
+        serviceRunning = false;
+      Log.d(TAG,"--onDestroy()--");
+        super.onDestroy();
+    }
+/**********************************作业时回调start*******************************************/
+
+public interface RobotWorkingCallback {
+    void RobotStateChanged(TankRobot tankRobot);
+    void BleStateChanged(int msg);     //蓝牙状态回掉
+    void BleConnectedDevice(BluetoothDevice connectedDevice);//返回正在连接的蓝牙设备
+    void BleScanChanged(ArrayList<BluetoothDevice> mBleDeviceList); //蓝牙搜索回调
+}
+public void setRobotWorkingCallback(RobotWorkingCallback  callback){
+    this.robotWorkingCallback = callback;
+}
+public RobotWorkingCallback getRobotWorkingCallback(){
+    return this.robotWorkingCallback;
+}
+
+ /*********************************作业时回调end********************************************/
+
+
+/**********************************测绘时的回调函数start*******************************************/
+    public MappingCallback getMappingCallback() {
+        return mappingCallback;
+    }
+
+    public void setMappingCallback(MappingCallback mappingCallback) {
+        this.mappingCallback = mappingCallback;
+    }
+    /***
+     *  通过回调机制，将Service内部的变化传递到外部
+     *  what 1返回蓝牙搜索数据 2返回蓝牙接收的数据
+     */
+    public interface MappingCallback {
+        void BleDataChanged(MappingGroup rtkMap); //接收数据回调
+        void BleStateChanged(int msg);     //蓝牙状态回掉
+        void BleScanChanged(ArrayList<BluetoothDevice> mBleDeviceList); //蓝牙搜索回调
+        void BleConnectedDevice(BluetoothDevice connectedDevice);//返回正在连接的蓝牙设备
+
+    }
+/**********************************测绘时的回调函数start********************************************/
+
+/****************************************蓝牙监听start**********************************************/
+    /***
+     * 蓝牙搜索回调函数
+     */
+    private BluetoothAdapter.LeScanCallback mLeScanCallback =
+            new BluetoothAdapter.LeScanCallback() {
+
+                @Override
+                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+
+              //      addScanLeDevice(device);
+                    workBleGroup.addBleDevice(workBleGroup.isWorkingId,device);
+                    if(workBleGroup.findBleList.size()>0){
+                        msgWhat = BLE_SCAN_ON;
+                    }
+
+                }
+            };
+
+    /***
+     * 开启蓝牙以及以及监听事件
+     */
+    private void openBle(){
+
         //开启蓝牙
         if(mBluetoothAdapter == null){
 
@@ -295,11 +441,15 @@ public class BLEService extends Service {
                 Toast.makeText(this, "手机不支持蓝牙", Toast.LENGTH_SHORT).show();
             }else {
 
-             //   scanLeDevice(true);
+                //   scanLeDevice(true);
                 //初始化
                 mBLE = new BluetoothLeClass(this);
+
+                workBleGroup.mBLE = mBLE; //将对象传递给蓝牙管理
+
                 if (!mBLE.initialize()) {
                     Toast.makeText(this, "蓝牙服务初始化失败", Toast.LENGTH_SHORT).show();
+                    workBleGroup.mBLE =null;
                 }
                 //发现BLE终端的Service时回调
                 mBLE.setOnServiceDiscoverListener(mOnServiceDiscover);
@@ -312,81 +462,8 @@ public class BLEService extends Service {
             }
 
         }
-        return super.onStartCommand(intent, flags, startId);
-    }
-
-    // 退出或者销毁时调用该方法
-    @Override
-    public void onDestroy() {
-        serviceRunning = false;
-      Log.d(TAG,"--onDestroy()--");
-        super.onDestroy();
-    }
-
-    DataCallback dataCallback = null;
-
-    public DataCallback getDataCallback() {
-        return dataCallback;
-    }
-
-    public void setDataCallback(DataCallback dataCallback) {
-        this.dataCallback = dataCallback;
-    }
-
-    /***
-     *  通过回调机制，将Service内部的变化传递到外部
-     *  what 1返回蓝牙搜索数据 2返回蓝牙接收的数据
-     */
-    public interface DataCallback {
-        void BleDataChanged(MappingGroup rtkMap); //接收数据回调
-        void BleStateChanged(int msg);     //蓝牙状态回掉
-        void BleScanChanged(ArrayList<BluetoothDevice> mBleDeviceList); //蓝牙搜索回调
-        void BleConnectedDevice(BluetoothDevice connectedDevice);//返回正在连接的蓝牙设备
 
     }
-
-    /***
-     * 蓝牙搜索回调函数
-     */
-    private BluetoothAdapter.LeScanCallback mLeScanCallback =
-            new BluetoothAdapter.LeScanCallback() {
-
-                @Override
-                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-
-                    String check="";
-                    //根据不同功能筛选指定名字的蓝牙
-                    switch(bleWorkTpye) {
-                        case SERV_BLE_MAPPING_CONNECT:
-                            check = "[RMHB]\\d{5}";
-                            break;
-                    }
-                    String bleName = device.getName().toString();
-                    if (bleName.matches(check)) {
-                        if (mBleDeviceList.size() > 0) {
-                            boolean flag = false;
-                            int len = mBleDeviceList.size();
-                            for (int i = 0; i < len; i++) {
-                                if (device.getName().toString().equals(mBleDeviceList.get(i).getName().toString())) {
-                                    flag = true;
-                                }
-                            }
-                            if (flag == false) {
-                                mBleDeviceList.add(device);
-                            }
-                        } else {
-                            mBleDeviceList.add(device);
-                        }
-                        msgWhat = BLE_SCAN_ON;
-                    }else{
-                        Log.d(TAG,"蓝牙搜索名字匹配失败");
-                    }
-                    //        Log.d(TAG, "扫描到设备" + mBleDeviceList.get(mBleDeviceList.size()-1).getName().toString()+" ID"+
-                    //               mBleDeviceList.get(mBleDeviceList.size()-1).getAddress().toString() +"->"+ mBleDeviceList.size());
-
-                }
-            };
-
     private void scanLeDevice(final boolean enable) {
         if (enable) {
             // Stops scanning after a pre-defined scan period.
@@ -396,9 +473,11 @@ public class BLEService extends Service {
               //      Log.d(TAG,"没有搜索到蓝牙");
                     if(mBluetoothAdapter !=null){
                        mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                       if(mBleDeviceList.size() == 0) {//没有查找到测绘杆
-                             msgWhat = BLE_SCAN_OFF;
-                       }
+
+                        if(workBleGroup.findBleList.size() == 0) {//没有查找到测绘杆
+                            msgWhat = BLE_SCAN_OFF;
+                        }
+
                     }
                 }
             }, SCAN_PERIOD);
@@ -432,7 +511,8 @@ public class BLEService extends Service {
             Log.i(TAG,gatt.getDevice().getAddress()+":连接断开");
             msgWhat = BLE_CONNECT_OFF ;
         //    mBLE.close();
-            mCharacteristic = null;
+       //     mCharacteristic = null;
+            workBleGroup.isConnectGattCh = null;
       //      isConnectedBle=null;
         }
     };
@@ -470,97 +550,49 @@ public class BLEService extends Service {
 
           //  Log.d(TAG,"蓝牙数据帧： "+characteristic.getValue().length +" -> " +Utils.bytesToHexString(characteristic.getValue()));
 
-           switch (bleWorkTpye) {
-               case SERV_BLE_MAPPING:
+            switch(workBleGroup.isWorkingId) {
+                case BLEService.BLE_MAP_CONECT:
+                MappingGroup rtkMap = workBleGroup.translateMappingData(characteristic);
 
-               byte[] buf = characteristic.getValue();
+                if (mappingCallback != null && rtkMap != null) {
+                    mappingCallback.BleDataChanged(rtkMap);
+                }
+                break;
+                case BLEService.BLE_HANDLE_CONECT:
+                    HeatDataMsg heatDataMsg = workBleGroup.translateTaskData(characteristic);
 
-               if(revCount == 0 && buf[0] == 0x55  && revWaitTime ==0){
-                   revStart = true;
-                   revBuf[0]=0;
-               }
+                    for (int i=0;i<robotManagement.workRobotList.size();i++){
 
-               if(revStart == true) {
-                   revCount++;
+                        if(heatDataMsg.robotId == robotManagement.workRobotList.get(i).heatDataMsg.robotId){
 
-                   System.arraycopy(buf, 0, revBuf, revBuf[0] + 1, buf.length);
-                   revBuf[0] += (byte) buf.length;//数组起始地址偏移
-               }
-               if (revCount == 2) {
+                            robotManagement.workRobotList.get(i).checkCount = 0;//掉线检测清零
+                            robotManagement.workRobotList.get(i).heatDataMsg = heatDataMsg;//更新信息
+                            //返回值更新控制方式
+                            switch (heatDataMsg.command){
+                                case TankRobot.CTR_AUTO:
+                                    robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_AUTO;
+                                    break;
+                                case TankRobot.CTR_HANLDE:
+                                    robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_HANLDE;
+                                    break;
+                                case TankRobot.CTR_HANDLE_TURN:
+                                    robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_HANDLE_TURN;
+                                    break;
 
-                   revStart = false;
-                   revCount=0;
-                   byte[] bleBuf = new byte[revBuf[0]];
-                   //复制缓存数据，除去第一位后为实际接收数据
-                   System.arraycopy(revBuf, 1, bleBuf, 0, revBuf[0]);
-                   //      Log.d(TAG,Utils.bytesToHexString(bleBuf)+"\n");
-                   if (CRC16_ccitt(bleBuf)) {//CRC校验
+                            }
 
-                       //转化成数据流转GPS数据
-                       MappingGroup rtkMap = new MappingGroup();
-                       int sp = 2;
-                       rtkMap.rtkState = bleBuf[sp];   //RTK状态
-                       sp = sp + 1;
-                       rtkMap.longitude = getInt(bleBuf, sp); //经度
-                       sp = sp + 4;
-                       rtkMap.latitude = getInt(bleBuf, sp); //纬度
-                       sp = sp + 4;
-                       rtkMap.altitude = getFloat(bleBuf, sp); //海拔
-                       sp = sp + 4;
-                       rtkMap.roll = getFloat(bleBuf, sp); //IMU
-                       sp = sp + 4;
-                       rtkMap.pitch = getFloat(bleBuf, sp); //IMU
-                       sp = sp + 4;
-                       rtkMap.yaw = getFloat(bleBuf, sp); //方向
-                       sp = sp + 4;
-                       rtkMap.GPSTime_weeks = getShort(bleBuf, sp); //周
-                       sp = sp + 2;
-                       rtkMap.GPSTime_ms = getInt(bleBuf, sp); //时间ms
+                            //返回数据
+                            if(robotWorkingCallback !=null){
+                                robotWorkingCallback.RobotStateChanged(robotManagement.workRobotList.get(i));
+                            }
 
+                            break;
+                        }
+                    }
 
-                       Log.d(TAG, "RTK状态：" +rtkMap.rtkState +  " 经度：" + rtkMap.longitude + " 纬度：" + rtkMap.latitude + " 海拔：" + rtkMap.altitude + " roll：" + rtkMap.roll
-                               + " pitch：" + rtkMap.pitch + " 方向：" + rtkMap.yaw+ " 周：" + rtkMap.GPSTime_weeks+ " 时间：" + rtkMap.GPSTime_ms);
-
-                       //若有应用绑定服务，发送数据到该应用
-                       if (dataCallback != null) {
-                           dataCallback.BleDataChanged(rtkMap);
-                       }
-
-                   } else {
-                       Log.d(TAG, "接收数据校验失败");
-
-                       revWaitTime=4;//延时50ms,防止数据从中间截断
-                       //定位失败数据全为0
-                       MappingGroup rtkMap = new MappingGroup();
-                       rtkMap.rtkState = 0;
-                       rtkMap.longitude = 0;
-                       rtkMap.latitude = 0;
-                       rtkMap.altitude =0;
-                       rtkMap.roll=0;
-                       rtkMap.pitch=0;
-                       rtkMap.yaw=0;
-                       rtkMap.GPSTime_weeks=0;
-                       rtkMap.GPSTime_ms=0;
-
-                   }
-                   revCount = 0;
-                   //     Log.d(TAG,"蓝牙接收数据： "+bleBuf.length +" -> " +Utils.bytesToHexString(bleBuf));
-
-               }
-                   break;
-               case SERV_BLE_MAPPING_CONNECT:  //数据发送到连接测绘杆蓝牙
-
-                   break;
-               case SERV_BLE_HANDLE:
-                   break;
-               case SERV_BLE_MASTER:
-                   break;
-               case SERV_BLE_BASIC:
-                   break;
-
-                   default:
-                       break;
-           }
+                    break;
+            }
+           // readInPutBytes(characteristic);
 
         }
     };
@@ -580,57 +612,17 @@ public class BLEService extends Service {
                     mBLE.setCharacteristicNotification(gattCharacteristic, true);
 
                     Log.i(TAG,"连接到串口BLE");
+                    workBleGroup.isConnectGattCh = gattCharacteristic;
 
-                    mCharacteristic = gattCharacteristic;
                 }else if(gattCharacteristic.getUuid().toString().equals(UUID_KEY_CAR)){
                     //设置串口可接收通知的，设置其可以接收通知（notification）
                     mBLE.setCharacteristicNotification(gattCharacteristic, true);
 
                     Log.i(TAG,"连接到串口BLE");
-
-                    mCharacteristic = gattCharacteristic;
+                    workBleGroup.isConnectGattCh = gattCharacteristic;
                 }
             }
         }
     }
-
-    public static int CRC16_ccitt_table[] = { 0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf, 0x8c48, 0x9dc1, 0xaf5a,
-            0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7, 0x1081, 0x0108, 0x3393, 0x221a, 0x56a5, 0x472c, 0x75b7, 0x643e,
-            0x9cc9, 0x8d40, 0xbfdb, 0xae52, 0xdaed, 0xcb64, 0xf9ff, 0xe876, 0x2102, 0x308b, 0x0210, 0x1399, 0x6726,
-            0x76af, 0x4434, 0x55bd, 0xad4a, 0xbcc3, 0x8e58, 0x9fd1, 0xeb6e, 0xfae7, 0xc87c, 0xd9f5, 0x3183, 0x200a,
-            0x1291, 0x0318, 0x77a7, 0x662e, 0x54b5, 0x453c, 0xbdcb, 0xac42, 0x9ed9, 0x8f50, 0xfbef, 0xea66, 0xd8fd,
-            0xc974, 0x4204, 0x538d, 0x6116, 0x709f, 0x0420, 0x15a9, 0x2732, 0x36bb, 0xce4c, 0xdfc5, 0xed5e, 0xfcd7,
-            0x8868, 0x99e1, 0xab7a, 0xbaf3, 0x5285, 0x430c, 0x7197, 0x601e, 0x14a1, 0x0528, 0x37b3, 0x263a, 0xdecd,
-            0xcf44, 0xfddf, 0xec56, 0x98e9, 0x8960, 0xbbfb, 0xaa72, 0x6306, 0x728f, 0x4014, 0x519d, 0x2522, 0x34ab,
-            0x0630, 0x17b9, 0xef4e, 0xfec7, 0xcc5c, 0xddd5, 0xa96a, 0xb8e3, 0x8a78, 0x9bf1, 0x7387, 0x620e, 0x5095,
-            0x411c, 0x35a3, 0x242a, 0x16b1, 0x0738, 0xffcf, 0xee46, 0xdcdd, 0xcd54, 0xb9eb, 0xa862, 0x9af9, 0x8b70,
-            0x8408, 0x9581, 0xa71a, 0xb693, 0xc22c, 0xd3a5, 0xe13e, 0xf0b7, 0x0840, 0x19c9, 0x2b52, 0x3adb, 0x4e64,
-            0x5fed, 0x6d76, 0x7cff, 0x9489, 0x8500, 0xb79b, 0xa612, 0xd2ad, 0xc324, 0xf1bf, 0xe036, 0x18c1, 0x0948,
-            0x3bd3, 0x2a5a, 0x5ee5, 0x4f6c, 0x7df7, 0x6c7e, 0xa50a, 0xb483, 0x8618, 0x9791, 0xe32e, 0xf2a7, 0xc03c,
-            0xd1b5, 0x2942, 0x38cb, 0x0a50, 0x1bd9, 0x6f66, 0x7eef, 0x4c74, 0x5dfd, 0xb58b, 0xa402, 0x9699, 0x8710,
-            0xf3af, 0xe226, 0xd0bd, 0xc134, 0x39c3, 0x284a, 0x1ad1, 0x0b58, 0x7fe7, 0x6e6e, 0x5cf5, 0x4d7c, 0xc60c,
-            0xd785, 0xe51e, 0xf497, 0x8028, 0x91a1, 0xa33a, 0xb2b3, 0x4a44, 0x5bcd, 0x6956, 0x78df, 0x0c60, 0x1de9,
-            0x2f72, 0x3efb, 0xd68d, 0xc704, 0xf59f, 0xe416, 0x90a9, 0x8120, 0xb3bb, 0xa232, 0x5ac5, 0x4b4c, 0x79d7,
-            0x685e, 0x1ce1, 0x0d68, 0x3ff3, 0x2e7a, 0xe70e, 0xf687, 0xc41c, 0xd595, 0xa12a, 0xb0a3, 0x8238, 0x93b1,
-            0x6b46, 0x7acf, 0x4854, 0x59dd, 0x2d62, 0x3ceb, 0x0e70, 0x1ff9, 0xf78f, 0xe606, 0xd49d, 0xc514, 0xb1ab,
-            0xa022, 0x92b9, 0x8330, 0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78 };
-
-    public static boolean CRC16_ccitt(byte [] pSrcData) {
-        int crc_reg = 0x0000;
-        for (int i = 1; i < pSrcData.length-2; i++) {
-            crc_reg =  CRC16_ccitt_table[(crc_reg ^ pSrcData[i]) & 0xFF] ^ (crc_reg >> 8);
-        }
-        crc_reg &= 0xffff;
-        String strCrc = Integer.toHexString(crc_reg).toUpperCase();
-        Log.d(TAG,"校验值1："+strCrc);
-
-        if(crc_reg == ((pSrcData[pSrcData.length-2] & 0xff) | (pSrcData[pSrcData.length-1]<<8 & 0xff00))){
-            return true;
-        }else {
-            return false;
-        }
-
-
-    }
-
+/****************************************蓝牙监听end****************************************************/
 }

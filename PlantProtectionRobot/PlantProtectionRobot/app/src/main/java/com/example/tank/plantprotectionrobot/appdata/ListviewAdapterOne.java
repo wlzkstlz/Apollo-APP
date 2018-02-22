@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.example.tank.plantprotectionrobot.R;
@@ -21,9 +22,11 @@ public class ListviewAdapterOne extends BaseAdapter {
     private Context context;
     public ArrayList<Integer> checkedNum = new ArrayList<>();
 
-    private final String DEBUG_TAG = "MyListViewAdapter调试";
+ //   private final String DEBUG_TAG = "MyListViewAdapter调试";
+    private final String DEBUG_TAG = "Tank001";
 
 public final class ListItemView{                //自定义控件集合
+    public LinearLayout linearLayout;
     public TextView textView1;
     public TextView textView2;
     public TextView textView3;
@@ -37,11 +40,11 @@ public final class ListItemView{                //自定义控件集合
         this.context=context;
         this.data=data;
         this.layoutInflater= LayoutInflater.from(context);
-        checkedNum.add(data.size());
+
         for (int i=0;i<data.size();i++){
             checkedNum.add(0);
         }
-        Log.i(DEBUG_TAG,"listview元素个数checkedNum.size() ="+checkedNum.size());
+     //   Log.i(DEBUG_TAG,"listview元素个数checkedNum.size() ="+checkedNum.size());
     }
     public ArrayList<Integer> getCheckedNum(){
         return checkedNum;
@@ -71,9 +74,9 @@ public final class ListItemView{                //自定义控件集合
         ListItemView listItemView = null;
         listItemView = new ListItemView();
 
-
         //获取组件，实例化组件
         convertView=layoutInflater.inflate(R.layout.center_item1, null);
+        listItemView.linearLayout=(LinearLayout)convertView.findViewById(R.id.linearLayout1);
         listItemView.textView1 = (TextView)convertView.findViewById(R.id.textView1);
         listItemView.textView2 = (TextView)convertView.findViewById(R.id.textView2);
         listItemView.textView3 = (TextView)convertView.findViewById(R.id.textView3);

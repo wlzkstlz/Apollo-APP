@@ -70,14 +70,6 @@
 
     </LinearLayout>
 
-    <com.example.tank.plantprotectionrobot.MapView
-        android:id="@+id/mapView"
-        android:layout_width="match_parent"
-        android:layout_height="564dp"
-        android:background="#F2efe7"
-
-        app:layout_constraintTop_toBottomOf="@+id/linearLayout1"
-        tools:layout_editor_absoluteX="0dp" />
     <Button
         android:id="@+id/button2"
         android:layout_width="110dp"
