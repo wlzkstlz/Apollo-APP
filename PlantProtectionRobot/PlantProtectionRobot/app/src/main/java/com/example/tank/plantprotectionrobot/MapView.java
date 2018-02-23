@@ -134,7 +134,6 @@ class MapView extends View {
         path2.close();
         canvas.drawPath(path2, mPaint2);
 
-
         if(1 == drawNumber) {
 
             //工作模式

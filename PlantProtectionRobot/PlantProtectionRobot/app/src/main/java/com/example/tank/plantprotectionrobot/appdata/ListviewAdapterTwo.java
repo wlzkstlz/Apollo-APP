@@ -1,14 +1,12 @@
 package com.example.tank.plantprotectionrobot.appdata;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
-import android.widget.RadioButton;
 import android.widget.TextView;
 
 import com.example.tank.plantprotectionrobot.R;
@@ -77,7 +75,7 @@ public class ListviewAdapterTwo extends BaseAdapter {
       //  ListItemView listItemView = null;
         final ListItemView listItemView = new ListItemView();
         convertView=layoutInflater.inflate(R.layout.center_item2, null);
-        listItemView.linearLayout=(LinearLayout)convertView.findViewById(R.id.linearLayout1);
+        listItemView.linearLayout=(LinearLayout)convertView.findViewById(R.id.backgroundAlarm);
      //   listItemView.radioButton = (RadioButton)convertView.findViewById(R.id.radioButton1);
 
         listItemView.checkBox = (CheckBox)convertView.findViewById(R.id.checkBox1);

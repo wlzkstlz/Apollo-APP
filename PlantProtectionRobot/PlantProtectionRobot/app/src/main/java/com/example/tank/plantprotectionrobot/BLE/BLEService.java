@@ -25,6 +25,7 @@ import com.example.tank.plantprotectionrobot.Robot.HeatDataMsg;
 import com.example.tank.plantprotectionrobot.Robot.PollingManagement;
 import com.example.tank.plantprotectionrobot.Robot.RobotManagement;
 import com.example.tank.plantprotectionrobot.Robot.TankRobot;
+import com.example.tank.plantprotectionrobot.Robot.WorkMatch;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -128,7 +129,7 @@ public class BLEService extends Service {
             robotManagement.workRobotList=workRobot;
         }
         /*** 添加机器人
-         * @param 新添加的机器人
+         * @param workRobot 新添加的机器人
          */
         public void addWorkRobot(TankRobot workRobot){
             robotManagement.workRobotList.add(workRobot);

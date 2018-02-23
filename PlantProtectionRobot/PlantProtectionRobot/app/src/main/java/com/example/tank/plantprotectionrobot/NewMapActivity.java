@@ -143,7 +143,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private Intent intentSev;
 
     private final int BLE_CONNECT_ON = 20; //蓝牙连接成功
-    private final int BLE_CONNECT_OFF =21;//练呀连接失败
+    private final int BLE_CONNECT_OFF =21;//蓝牙连接失败
     private final int BLE_SCAN_OFF = 11;
     private final int BLE_SCAN_ON = 10; //扫描到蓝牙
     private final int BLE_DATA_ON = 30; //接收到数据
@@ -173,7 +173,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         textView1 = (TextView)findViewById(R.id.textView1);
         textView2 = (TextView)findViewById(R.id.textView2);
         mapView = (MapView)findViewById(R.id.mapView);
-        linearLayout =(LinearLayout)findViewById(R.id.linearLayout1);
+        linearLayout =(LinearLayout)findViewById(R.id.backgroundAlarm);
         mapView.setOnTouchListener(this);
 
 

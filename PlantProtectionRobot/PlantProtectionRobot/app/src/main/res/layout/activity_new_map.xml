@@ -7,7 +7,7 @@
     tools:context="com.example.tank.plantprotectionrobot.NewMapActivity">
 
     <LinearLayout
-        android:id="@+id/linearLayout1"
+        android:id="@+id/backgroundAlarm"
         android:layout_width="0dp"
         android:layout_height="50dp"
         android:background="@color/tankgreen"
@@ -69,7 +69,7 @@
         android:layout_height="564dp"
         android:background="#F2efe7"
 
-        app:layout_constraintTop_toBottomOf="@+id/linearLayout1"
+        app:layout_constraintTop_toBottomOf="@+id/backgroundAlarm"
         tools:layout_editor_absoluteX="0dp" />
 
     <Button

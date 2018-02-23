@@ -27,6 +27,7 @@ import com.example.tank.plantprotectionrobot.BLE.BluetoothLeClass;
 import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
 import com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool;
 import com.example.tank.plantprotectionrobot.Robot.TankRobot;
+import com.example.tank.plantprotectionrobot.Robot.WorkMatch;
 import com.example.tank.plantprotectionrobot.appdata.ListviewAdapterOne;
 import com.example.tank.plantprotectionrobot.appdata.ListviewAdapterTwo;
 
@@ -74,12 +75,14 @@ public class CenterControlActivity extends AppCompatActivity {
     private BLEService.BleBinder binder = null;
     private Intent intentSev;
     public ArrayList<TankRobot> workRobotList;
+    //工作匹配组，机器人与果园、路径匹配
 
 
-    //蓝牙扫描时间
+    //
     private final int EXIT_MSG=0;
     private final int TANKLEVEL_MIN=5;
     private final int BATTERY_MIN =10;
+    public static final int ROBOT_OFFLINE_CNT = 3;
 
     private final String DEBUG_TAG = "Tank001";
     private  ListviewAdapterTwo listviewAdapterTwo;
@@ -128,8 +131,16 @@ public class CenterControlActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
 
             //    Log.d(DEBUG_TAG,"你点的是"+i);
+            if(workRobotList.size()>0) {
+               if(!workRobotList.get(i).workMatch.orchardName.equals("")){
+                   workMap.putExtra("robotId",workRobotList.get(i).heatDataMsg.robotId);
+                   startActivity(workMap);
+               }else{
+                   Toast.makeText(getApplicationContext(), "机器人还未匹配果园",
+                           Toast.LENGTH_SHORT).show();
+               }
+            }
 
-            //    startActivity(workMap);
             }
         });
         workDataBtn.setOnClickListener(new View.OnClickListener() {
@@ -240,7 +251,7 @@ public class CenterControlActivity extends AppCompatActivity {
                 }
 
 
-                if(workRobotList.get(i).checkCount>3 || (workRobotList.get(i).heatDataMsg.rtkState & 0x03) != 0x03) {
+                if(workRobotList.get(i).checkCount > ROBOT_OFFLINE_CNT  || (workRobotList.get(i).heatDataMsg.rtkState & 0x03) != 0x03) {
 
                     map.put("mac_task", "-");
                     map.put("mac_pesticides", "-");
@@ -320,6 +331,8 @@ public class CenterControlActivity extends AppCompatActivity {
         //绑定蓝牙服务
         bleServiceConn = new CenterControlActivity.BleServiceConn();
         bindService(intentSev, bleServiceConn, Context.BIND_AUTO_CREATE);
+
+
         super.onStart();
     }
 
@@ -332,6 +345,7 @@ public class CenterControlActivity extends AppCompatActivity {
         public void onServiceConnected(ComponentName name, IBinder service) {
             // IBinder service为onBind方法返回的Service实例
             binder = (BLEService.BleBinder) service;
+
 
             //绑定后执行动作
             binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT);

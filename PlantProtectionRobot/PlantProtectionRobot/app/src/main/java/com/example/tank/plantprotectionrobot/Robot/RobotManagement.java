@@ -25,16 +25,14 @@ public class RobotManagement{
 
     //蓝牙工作组
     public WorkBleGroup workBleGroup=null;
+    //工作匹配组，机器人与果园、路径匹配
+    public ArrayList<WorkMatch> workMatchList = null;
 
     //指令
     private byte[] comBuf = new byte[6];
     public int pollCount;//轮询计数
 
     private BLEService.RobotWorkingCallback robotWorkingCallback=null;
-
-    //打开的路径文件以及是否匹配 0 位匹配 1匹配
-    private List<Map<String, Object>> mapList = new ArrayList<Map<String,Object>>();
-
 
     /***
      *
@@ -44,6 +42,7 @@ public class RobotManagement{
      */
     public  RobotManagement(final PollingManagement poll, final WorkBleGroup workBleGroup, BLEService.RobotWorkingCallback callback){
         workRobotList = new ArrayList<TankRobot>();
+        workMatchList = new ArrayList<WorkMatch>();
         this.pollingManagement=poll;
         this.workBleGroup=workBleGroup;
 

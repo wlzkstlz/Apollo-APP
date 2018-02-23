@@ -14,6 +14,7 @@ public class TankRobot{
     public  boolean robotOnline; //现在true 掉线 line
     public  int checkCount; //不回复信息计数>3次认为离线
     public  int workAuto;//0自动驾驶状态 1表示手动驾驶2手动转场
+    public WorkMatch workMatch; //机器人匹配果园、路劲
     public HeatDataMsg heatDataMsg;
     public static final int CTR_AUTO = 0;
     public static final int CTR_HANLDE = 1;
@@ -22,8 +23,9 @@ public class TankRobot{
     public TankRobot(int id){
 
         heatDataMsg =new HeatDataMsg();
+        workMatch = new WorkMatch();
         checkCount=0;
-        workAuto = CTR_AUTO;
+        workAuto = CTR_HANDLE_TURN;
         robotOnline=false;
         isWorking = false;
         heatDataMsg.robotId=id;

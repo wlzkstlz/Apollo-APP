@@ -1,7 +1,6 @@
 package com.example.tank.plantprotectionrobot.appdata;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -76,7 +75,7 @@ public final class ListItemView{                //自定义控件集合
 
         //获取组件，实例化组件
         convertView=layoutInflater.inflate(R.layout.center_item1, null);
-        listItemView.linearLayout=(LinearLayout)convertView.findViewById(R.id.linearLayout1);
+        listItemView.linearLayout=(LinearLayout)convertView.findViewById(R.id.backgroundAlarm);
         listItemView.textView1 = (TextView)convertView.findViewById(R.id.textView1);
         listItemView.textView2 = (TextView)convertView.findViewById(R.id.textView2);
         listItemView.textView3 = (TextView)convertView.findViewById(R.id.textView3);

@@ -39,7 +39,7 @@ public class ListviewUserNameAdp extends BaseAdapter {
         this.layoutInflater= LayoutInflater.from(context);
     }
 
-    public void clearSelection(int position) {
+    public void orchardSelection(int position) {
         selectedPosition = position;
     }
     public void setNameList(ArrayList<String>  nList){

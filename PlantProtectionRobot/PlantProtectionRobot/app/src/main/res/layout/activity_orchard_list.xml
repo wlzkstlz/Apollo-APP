@@ -7,7 +7,7 @@
     tools:context="com.example.tank.plantprotectionrobot.OrchardListActivity">
 
     <LinearLayout
-        android:id="@+id/linearLayout1"
+        android:id="@+id/backgroundAlarm"
         android:layout_width="0dp"
         android:layout_height="57dp"
         android:background="@color/tankgreen"
@@ -67,7 +67,7 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/linearLayout1" />
+        app:layout_constraintTop_toBottomOf="@+id/backgroundAlarm" />
 
     <TextView
         android:id="@+id/textView2"
