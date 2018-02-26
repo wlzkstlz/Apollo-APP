@@ -21,6 +21,7 @@ import android.widget.Toast;
 
 import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
 import com.example.tank.plantprotectionrobot.R;
+import com.example.tank.plantprotectionrobot.Robot.CommondType;
 import com.example.tank.plantprotectionrobot.Robot.HeatDataMsg;
 import com.example.tank.plantprotectionrobot.Robot.PollingManagement;
 import com.example.tank.plantprotectionrobot.Robot.RobotManagement;
@@ -88,14 +89,15 @@ public class BLEService extends Service {
     //分时轮询
     private PollingManagement pollingManagement = new PollingManagement();
     //机器人管理类
-    private RobotManagement robotManagement = new RobotManagement(pollingManagement,workBleGroup,robotWorkingCallback);
+    private RobotManagement robotManagement = new RobotManagement(pollingManagement,workBleGroup);
 
     // 解绑Servcie调用该方法
     @Override
     public boolean onUnbind(Intent intent) {
         Log.d(TAG,"--onUnbind()--");
-        mappingCallback = null;//解除绑定后清除回调类
-        robotWorkingCallback =null;
+    //    mappingCallback = null;//解除绑定后清除回调类
+     //   robotWorkingCallback =null;
+
         return super.onUnbind(intent);
     }
 
@@ -109,11 +111,29 @@ public class BLEService extends Service {
         return new BleBinder();
     }
 
+
+    /***
+     *
+     */
     public class BleBinder extends Binder {
         public  BLEService getService() {
+            workBleGroup.isWorkingId = BLE_HANDLE_CONECT;
+            //新界面默认，获取服务后设置
+            if(robotManagement.workRobotList !=null) {//取消进入工作地图界面标志
+                for (int i = 0; i < robotManagement.workRobotList.size(); i++) {
+                    robotManagement.workRobotList.get(i).inWorkPage=false;
+                    pollingManagement.haveWorkMapPageCtr =false;
+                }
+            }
             return BLEService.this;
         }
 
+        /***
+         * 设置时间碎片分配，即是进入工作地图界面的机器人分配更多时间碎片
+         */
+        public void setPollingFragment(){
+           pollingManagement.haveWorkMapPageCtr =true;
+        }
         /***
          * 获取在线的机器人列表
          * @return
@@ -133,6 +153,12 @@ public class BLEService extends Service {
          */
         public void addWorkRobot(TankRobot workRobot){
             robotManagement.workRobotList.add(workRobot);
+            robotManagement.pollCount = robotManagement.workRobotList.size()-1;//
+            //----------测试---------//
+            if(robotManagement.workRobotList.size() >=2 ){
+                robotManagement.workRobotList.get(robotManagement.workRobotList.size()-2).workAuto = TankRobot.CTR_AUTO;
+            }
+
         }
         /***
          *
@@ -141,10 +167,16 @@ public class BLEService extends Service {
         public void setBleWorkTpye(int type){
             mappingCallback = null;
             robotWorkingCallback = null;
+            robotManagement.robotWorkingCallback = robotWorkingCallback;
+
+            if(type != workBleGroup.isWorkingId){
+                mBLE.disconnect();
+                mBLE.close();
+                Log.d(TAG," Bleservice->断开连接");
+            }
             //重新连接时，先清除之前的回调函数
             workBleGroup.isWorkingId = type;
 
-            Log.d(TAG," workBleGroup.isWorkingId ="+type);
         }
 
         //开始搜索蓝牙
@@ -263,13 +295,14 @@ public class BLEService extends Service {
             @Override
             public void run() {
                 while (serviceRunning) {
-                    if (mappingCallback != null) {
+                    if (mappingCallback != null || robotWorkingCallback != null) {
 
                         switch(msgWhat){
                             case BLE_SCAN_ON:
                                 if(workBleGroup.findBleList.size()>0) {
                                     ArrayList<BluetoothDevice> mBleList = new ArrayList<BluetoothDevice>();
                                     mBleList.addAll(workBleGroup.findBleList.subList(0, workBleGroup.findBleList.size()));
+
                                     if (mappingCallback != null) {
                                         mappingCallback.BleScanChanged(mBleList);
                                     }
@@ -277,7 +310,9 @@ public class BLEService extends Service {
                                     //               mBleDeviceList.get(mBleDeviceList.size()-1).getAddress().toString() +"->"+ mBleDeviceList.size());
                                     if (robotWorkingCallback != null) {
                                         robotWorkingCallback.BleScanChanged(mBleList);
+                                        Log.d(TAG,"BleService->robotWorkingCallback返回搜索到的蓝牙");
                                     }
+                                  //  Log.d(TAG,"BleService->返回搜索到的蓝牙"+workBleGroup.findBleList.get(0).getName().toString());
                                 }
                                 msgWhat=0;
                                break;
@@ -317,12 +352,15 @@ public class BLEService extends Service {
 
                                 //返回测绘正在连接的蓝牙
                                 if (mappingCallback != null && workBleGroup.isWorkingId == BLE_MAP_CONECT) {
-
-                                    mappingCallback.BleConnectedDevice(workBleGroup.bleMapCneted);
+                                    if(workBleGroup.bleMapCneted !=null) {
+                                        mappingCallback.BleConnectedDevice(workBleGroup.bleMapCneted);
+                                    }
                                 }
                                 //返回遥控器蓝牙状态
-                                if(robotWorkingCallback !=null){
-                                    robotWorkingCallback.BleConnectedDevice(workBleGroup.bleHandleCneted);
+                                if(robotWorkingCallback !=null && workBleGroup.isWorkingId == BLE_HANDLE_CONECT){
+                                    if(workBleGroup.bleHandleCneted !=null) {
+                                        robotWorkingCallback.BleConnectedDevice(workBleGroup.bleHandleCneted);
+                                    }
                                 }
 
                                 msgWhat=0;
@@ -368,7 +406,9 @@ public interface RobotWorkingCallback {
     void BleScanChanged(ArrayList<BluetoothDevice> mBleDeviceList); //蓝牙搜索回调
 }
 public void setRobotWorkingCallback(RobotWorkingCallback  callback){
+
     this.robotWorkingCallback = callback;
+    robotManagement.robotWorkingCallback = this.robotWorkingCallback;
 }
 public RobotWorkingCallback getRobotWorkingCallback(){
     return this.robotWorkingCallback;
@@ -399,23 +439,7 @@ public RobotWorkingCallback getRobotWorkingCallback(){
 /**********************************测绘时的回调函数start********************************************/
 
 /****************************************蓝牙监听start**********************************************/
-    /***
-     * 蓝牙搜索回调函数
-     */
-    private BluetoothAdapter.LeScanCallback mLeScanCallback =
-            new BluetoothAdapter.LeScanCallback() {
 
-                @Override
-                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-
-              //      addScanLeDevice(device);
-                    workBleGroup.addBleDevice(workBleGroup.isWorkingId,device);
-                    if(workBleGroup.findBleList.size()>0){
-                        msgWhat = BLE_SCAN_ON;
-                    }
-
-                }
-            };
 
     /***
      * 开启蓝牙以及以及监听事件
@@ -465,6 +489,26 @@ public RobotWorkingCallback getRobotWorkingCallback(){
         }
 
     }
+
+    /***
+     * 蓝牙搜索回调函数
+     */
+    private BluetoothAdapter.LeScanCallback mLeScanCallback =
+            new BluetoothAdapter.LeScanCallback() {
+
+                @Override
+                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+
+                    //      addScanLeDevice(device);
+                    workBleGroup.addBleDevice(workBleGroup.isWorkingId,device);
+                    if(workBleGroup.findBleList.size()>0){
+                        msgWhat = BLE_SCAN_ON;
+                     //   Log.d(TAG,"BleService->添加蓝牙"+workBleGroup.findBleList.get(0).getName().toString());
+                    }
+
+                }
+            };
+
     private void scanLeDevice(final boolean enable) {
         if (enable) {
             // Stops scanning after a pre-defined scan period.
@@ -566,10 +610,13 @@ public RobotWorkingCallback getRobotWorkingCallback(){
 
                         if(heatDataMsg.robotId == robotManagement.workRobotList.get(i).heatDataMsg.robotId){
 
+
                             robotManagement.workRobotList.get(i).checkCount = 0;//掉线检测清零
                             robotManagement.workRobotList.get(i).heatDataMsg = heatDataMsg;//更新信息
+
                             //返回值更新控制方式
-                            switch (heatDataMsg.command){
+
+                            switch (heatDataMsg.curState){
                                 case TankRobot.CTR_AUTO:
                                     robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_AUTO;
                                     break;
@@ -582,6 +629,9 @@ public RobotWorkingCallback getRobotWorkingCallback(){
 
                             }
 
+
+                            //任何指令都只执行一次，执行完后变为心跳指令
+                            robotManagement.workRobotList.get(i).heatDataMsg.command = CommondType.CMD_HEARTBEAT;
                             //返回数据
                             if(robotWorkingCallback !=null){
                                 robotWorkingCallback.RobotStateChanged(robotManagement.workRobotList.get(i));

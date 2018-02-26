@@ -81,6 +81,7 @@ public class WorkBleGroup {
 
         String check="";
         //蓝牙名过滤
+
         switch(id){
             case  BLEService.BLE_BASIC_CONECT:
                 check = "[B]\\d{5}";
@@ -111,6 +112,7 @@ public class WorkBleGroup {
                 }
             } else {
                 findBleList.add(device);
+            //    Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
             }
 
         }else{
@@ -179,6 +181,7 @@ public class WorkBleGroup {
         HeatDataMsg stateMsg = new HeatDataMsg();
 
         byte[] buf = characteristic.getValue();
+     //   Log.d(TAG,"接收到数据->"+Utils.bytesToHexString(buf));
 
         int sp = 1;
         stateMsg.robotId = buf[sp] | (buf[sp+1]<<8);

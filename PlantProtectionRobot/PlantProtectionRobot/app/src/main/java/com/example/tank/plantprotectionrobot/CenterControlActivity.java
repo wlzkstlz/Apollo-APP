@@ -265,12 +265,15 @@ public class CenterControlActivity extends AppCompatActivity {
                     map.put("mac_pesticides", "" + workRobotList.get(i).heatDataMsg.tankLevel + "%");
                     map.put("mac_power", "" + workRobotList.get(i).heatDataMsg.batteryPercentage + "%");
 
-                    if(workRobotList.get(i).heatDataMsg.curState < 100) {
-                        state +="作业";
+                    if(workRobotList.get(i).heatDataMsg.taskFile == true){
+                        if (workRobotList.get(i).heatDataMsg.curState < 100) {
+                            state += "作业";
+                        } else {
+                            state += "完成";
+                        }
                     }else{
-                        state +="完成";
+                        state += "转场";
                     }
-
                     if(workRobotList.get(i).heatDataMsg.tankLevel < TANKLEVEL_MIN){
                         state +="|加药";
                     }
@@ -387,7 +390,7 @@ public class CenterControlActivity extends AppCompatActivity {
                 @Override
                 public void BleConnectedDevice(BluetoothDevice connectedDevice) {
                     if(connectedDevice == null){
-                        binder.startScanBle();
+                   //     binder.startScanBle();
                     }
 
                 }

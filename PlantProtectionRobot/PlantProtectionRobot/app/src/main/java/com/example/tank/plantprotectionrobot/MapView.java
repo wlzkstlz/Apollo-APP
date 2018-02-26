@@ -34,7 +34,7 @@ import com.example.tank.plantprotectionrobot.DataProcessing.GpsPoint;
 
 import java.util.ArrayList;
 
-class MapView extends View {
+public class MapView extends View {
 
     private  int drawNumber = 0;
     private  float mapRatio;
@@ -252,15 +252,15 @@ class MapView extends View {
 
         //画笔初始化
         mPaint.setColor(Color.rgb(37, 155, 36));
-        mPaint.setStrokeWidth(8f);
+        mPaint.setStrokeWidth(4f);
         mPaint.setStyle(Paint.Style.STROKE);
 
         mPaint1.setColor(Color.rgb(170, 170, 170));
-        mPaint1.setStrokeWidth(8f);
+        mPaint1.setStrokeWidth(4f);
         mPaint1.setStyle(Paint.Style.STROKE);
 
         mPaint2.setColor(Color.rgb(63, 81, 181));
-        mPaint2.setStrokeWidth(16f);
+        mPaint2.setStrokeWidth(4f);
         mPaint2.setStyle(Paint.Style.STROKE);
 
 

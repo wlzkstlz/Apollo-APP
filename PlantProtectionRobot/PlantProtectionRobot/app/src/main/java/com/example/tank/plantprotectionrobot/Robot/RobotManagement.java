@@ -32,15 +32,14 @@ public class RobotManagement{
     private byte[] comBuf = new byte[6];
     public int pollCount;//轮询计数
 
-    private BLEService.RobotWorkingCallback robotWorkingCallback=null;
+    public BLEService.RobotWorkingCallback robotWorkingCallback=null;
 
     /***
      *
      * @param poll
      * @param workBleGroup
-     * @param callback  作业模式下的回调函数
      */
-    public  RobotManagement(final PollingManagement poll, final WorkBleGroup workBleGroup, BLEService.RobotWorkingCallback callback){
+    public  RobotManagement(final PollingManagement poll, final WorkBleGroup workBleGroup){
         workRobotList = new ArrayList<TankRobot>();
         workMatchList = new ArrayList<WorkMatch>();
         this.pollingManagement=poll;
@@ -48,37 +47,29 @@ public class RobotManagement{
 
         //配置分时轮询
         pollingManagement.setPolling(5);
-        pollingManagement.haveHandleCtr=false;
+        pollingManagement.haveWorkMapPageCtr=false;
 
         pollCount=0;
 
-        robotWorkingCallback = callback;
-
+    //    robotWorkingCallback = callback;
 
         //分时轮询会调用
         poll.setPollCallback(new PollingManagement.PollCallback() {
 
-
             @Override
-            public void askAutoRobot() {
+            public void askInCenterRobot() {
             //    Log.d(TAG,"RobotManagement->askAutoRobot()");
 
-                if(workBleGroup !=null) {
-                    if(workBleGroup.mBLE !=null && workBleGroup.isConnectGattCh !=null) {
+                if(workBleGroup !=null && workRobotList.size()>0) {
 
-                        //针对已添加的机器人，发送前更新新消息,如果是没有接收到返回，这里也将会更新数据，
-                        if(pollCount<workRobotList.size() && workRobotList.get(pollCount).isWorking ==false) {
-                            if(robotWorkingCallback !=null) {
-                                robotWorkingCallback.RobotStateChanged(workRobotList.get(pollCount));
-                            }
-                        }
+                    if(workBleGroup.mBLE !=null && workBleGroup.isConnectGattCh !=null) {
                         //
-                        if(getAutoCommond()){
+                        if(getInCenterCommond()){
                           workBleGroup.sendCommand(comBuf);
-                        }
-                        pollCount++;
-                        if(pollCount>=workRobotList.size()){
-                            pollCount=0;
+                            pollCount++;
+                            if(pollCount>=workRobotList.size()){
+                                pollCount=0;
+                            }
                         }
                     }
                 }
@@ -86,63 +77,84 @@ public class RobotManagement{
             }
 
             @Override
-            public void askHanldeRobot() {
+            public void askInWorkMapRobot(){
 
-                if(getHandleCommond()){
-                    workBleGroup.sendCommand(comBuf);
+                if(workBleGroup !=null && workRobotList.size()>0) {
+
+                    if (workBleGroup.mBLE != null && workBleGroup.isConnectGattCh != null) {
+
+
+                        if (getInWorkMapCommond()) {
+                            workBleGroup.sendCommand(comBuf);
+                        }
+                    }
                 }
-           //     Log.d(TAG,"RobotManagement->askHanldeRobot()");
             }
         });
 
     }
-    //自动驾驶
-    private boolean getAutoCommond(){
 
-        if(workRobotList.size()-1>=pollCount){
+    /***
+     * 获取自动驾驶发送数据
+     * @return
+     */
+    private boolean getInCenterCommond(){
+
+        if(pollCount <= workRobotList.size()-1){
             //因为只有一个是手动控制，如果当前不是就调到下一个
-            if(workRobotList.get(pollCount).workAuto == TankRobot.CTR_AUTO){
+            if(workRobotList.get(pollCount).workAuto != TankRobot.CTR_AUTO){
                 pollCount++;
                 if(pollCount>=workRobotList.size()){
                     pollCount=0;
                 }
             }
-            //装指令
-            comBuf[0] = (byte)(workRobotList.get(pollCount).heatDataMsg.robotId>>8);//机器人ID
-            comBuf[1] = (byte)(workRobotList.get(pollCount).heatDataMsg.robotId);
-            comBuf[2] =  workRobotList.get(pollCount).LORA_CH;                      //信道
-            comBuf[3] = 0x55;
-            comBuf[4] = workRobotList.get(pollCount).heatDataMsg.command;//指令
-            comBuf[5] =0;
 
-            workRobotList.get(pollCount).checkCount++;//掉线检测
+            //装指令
+            if(workRobotList.get(pollCount).workAuto == TankRobot.CTR_AUTO) {
+                comBuf[0] = (byte) (workRobotList.get(pollCount).heatDataMsg.robotId);//机器人ID
+                comBuf[1] = (byte) (workRobotList.get(pollCount).heatDataMsg.robotId >> 8);
+                comBuf[2] = workRobotList.get(pollCount).LORA_CH;                      //信道
+                comBuf[3] = 0x55;
+                comBuf[4] = workRobotList.get(pollCount).heatDataMsg.command;//指令
+                comBuf[5] = 0;
+                workRobotList.get(pollCount).checkCount++;//掉线检测
+
+                Log.d(TAG,"RobotManagement->发送getInCenterCommond()");
+
+              //  for(int i=0;i<workRobotList.size();i++){
+              //      Log.d(TAG,"RobotManagement->workAuto="+workRobotList.get(i).workAuto);
+             //   }
+            }
+
         }else{
             return false;
         }
         return true;
     }
-    private boolean getHandleCommond(){
+
+    /***
+     * 获取手动控制发送数据
+     * @return
+     */
+    private boolean getInWorkMapCommond(){
         for(int i=0;i<workRobotList.size();i++){
             if(workRobotList.get(i).workAuto != TankRobot.CTR_AUTO){
 
                 //装指令
-                comBuf[0] = (byte)(workRobotList.get(pollCount).heatDataMsg.robotId>>8);
-                comBuf[1] = (byte)(workRobotList.get(pollCount).heatDataMsg.robotId);
-                comBuf[2] =  workRobotList.get(pollCount).LORA_CH;
+                comBuf[0] = (byte)(workRobotList.get(i).heatDataMsg.robotId);
+                comBuf[1] = (byte)(workRobotList.get(i).heatDataMsg.robotId>>8);
+                comBuf[2] =  workRobotList.get(i).LORA_CH;
                 comBuf[3] = 0x55;
-                comBuf[4] = workRobotList.get(pollCount).heatDataMsg.command;//指令
+                comBuf[4] = workRobotList.get(i).heatDataMsg.command;//指令
                 comBuf[5] =0;
-                workRobotList.get(pollCount).checkCount++;//掉线检测
+                workRobotList.get(i).checkCount++;//掉线检测
+
+                Log.d(TAG,"RobotManagement->getInWorkMapCommond");
+
                 break;
             }
         }
         return true;
     }
-
-    public void addRobot(TankRobot robot){
-        workRobotList.add(robot);
-        pollCount = workRobotList.size()-1;
-    }
-
 
 }

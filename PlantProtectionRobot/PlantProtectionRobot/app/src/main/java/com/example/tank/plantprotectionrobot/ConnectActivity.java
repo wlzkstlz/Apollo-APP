@@ -46,7 +46,10 @@ public class ConnectActivity extends AppCompatActivity {
     private final int ROBOT_ADD_FAIL=20; //添加失败
     private final int ROBOT_NOMSG_BACK=0;//没有收到回复
 
-    ArrayList<TankRobot> workRobotList = new ArrayList<TankRobot>();
+    ArrayList<TankRobot> workRobotList;
+
+
+    private final  String TAG = "Tank001";
 
    @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,8 +66,7 @@ public class ConnectActivity extends AppCompatActivity {
            public void onClick(View view) {
 
                addRobot();
-
-               finish();
+           //    finish();
            }
        });
 
@@ -72,20 +74,66 @@ public class ConnectActivity extends AppCompatActivity {
        mHandler=new Handler(){
            @Override
            public void handleMessage(Message msg) {
+
+               ArrayList<TankRobot> robotList = new ArrayList<TankRobot>();
+               //消息提示
+               AlertDialog.Builder msgDialog =
+                       new AlertDialog.Builder(ConnectActivity.this);
+
                switch (msg.what){
-                   case ROBOT_ADD_FAIL:
-                       break;
-                   case ROBOT_ADD_SUCCESS:
-                       finish();
-                       break;
-                   case ROBOT_NOMSG_BACK:
-                       progressDialog.cancel();
-                       //消息提示
-                       AlertDialog.Builder msgDialog =
-                               new AlertDialog.Builder(ConnectActivity.this);
+                   case ROBOT_ADD_FAIL://添加失败
+
+                    //   progressDialog.cancel();
+                       Log.d(TAG,"ConnectActivity->添加机器人失败");
+                       if(workRobotList.size()>1) {
+                           for (int i = 0; i < workRobotList.size()-1; i++) {
+                               robotList.add(workRobotList.get(i));
+                           }
+                           //机器人不存在，删除添加的
+                           workRobotList.clear();
+                           for(int i=0;i<robotList.size();i++) {
+                               workRobotList.add(robotList.get(i));
+                           }
+                       }
+
+                       if(1 == workRobotList.size()){
+                           workRobotList.clear();
+                       }
+
                        msgDialog.setTitle("提示");
                        msgDialog.setMessage("编号"+tankRobot.heatDataMsg.robotId+"机器人不存在");
                        msgDialog.show();
+
+                       break;
+                   case ROBOT_ADD_SUCCESS:
+                       progressDialog.cancel();
+                       mHandler.removeMessages(ROBOT_NOMSG_BACK);
+                       Log.d(TAG,"ConnectActivity->添加机器人成功");
+                       finish();
+                       break;
+                   case ROBOT_NOMSG_BACK:
+
+                       progressDialog.cancel();
+
+                       if(workRobotList.size()>1) {
+                           for (int i = 0; i < workRobotList.size()-1; i++) {
+                               robotList.add(workRobotList.get(i));
+                           }
+                           //机器人不存在，删除添加的
+                           workRobotList.clear();
+                           for(int i=0;i<robotList.size();i++) {
+                               workRobotList.add(robotList.get(i));
+                           }
+                       }
+
+                       if(1 == workRobotList.size()){
+                           workRobotList.clear();
+                       }
+
+                       msgDialog.setTitle("提示");
+                       msgDialog.setMessage("编号"+tankRobot.heatDataMsg.robotId+"机器人不存在");
+                       msgDialog.show();
+
                        break;
                }
                super.handleMessage(msg);
@@ -115,10 +163,12 @@ public class ConnectActivity extends AppCompatActivity {
                         tankRobot.checkCount=4;
                         binder.addWorkRobot(tankRobot);
                     }
+                    progressDialog.show();
+                    mHandler.sendEmptyMessageDelayed(ROBOT_NOMSG_BACK, 4000);
                 }
 
-             //   progressDialog.show();
-             //   mHandler.sendEmptyMessageDelayed(ROBOT_NOMSG_BACK, 3000);
+
+
             }else{
                 Toast.makeText(this, "请输入正确的机器人编号" ,
                         Toast.LENGTH_SHORT).show();
@@ -157,15 +207,26 @@ public class ConnectActivity extends AppCompatActivity {
 
             //绑定后执行动作
             binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT);
+            binder.startScanBle();//搜索蓝牙
             workRobotList = binder.getRobotList();
+
             binder.getService().setRobotWorkingCallback(new BLEService.RobotWorkingCallback() {
                 @Override
                 public void RobotStateChanged(TankRobot tankRobot) {
-                    if(tankRobot.checkCount == 0){ //连接成功
-                       mHandler.sendEmptyMessage(ROBOT_ADD_SUCCESS);
-                    }else{
-                        mHandler.sendEmptyMessage(ROBOT_ADD_FAIL);
+
+                    if(tankRobot.isWorking == false) {//刚添加的机器人，判断是否在线
+                        if (tankRobot.checkCount == 0) { //连接成功
+                            mHandler.sendEmptyMessage(ROBOT_ADD_SUCCESS);
+
+                        } else {
+                            mHandler.sendEmptyMessage(ROBOT_ADD_FAIL);
+                        }
+                        if(workRobotList.size()>0){
+                            workRobotList.get(workRobotList.size()-1).isWorking =true;
+                        }
                     }
+
+
                 }
 
                 @Override
@@ -177,8 +238,6 @@ public class ConnectActivity extends AppCompatActivity {
                             break;
                         case BLEService.BLE_CONNECT_ON:
                             break;
-                        case BLEService.BLE_CONNECTED:
-                            break;
                     }
                 }
 
@@ -187,13 +246,14 @@ public class ConnectActivity extends AppCompatActivity {
                     if (mBleDeviceList.size()>0) {
                         //连接蓝牙
                         binder.connectBle(mBleDeviceList.get(0),false);
+                        Log.d(TAG,"ConnectActivity->连接蓝牙"+mBleDeviceList.get(0).getName());
                     }
                 }
 
                 @Override
                 public void BleConnectedDevice(BluetoothDevice connectedDevice) {
                    if(connectedDevice == null){
-                       binder.startScanBle();
+                  //     binder.startScanBle();
                    }
 
                 }

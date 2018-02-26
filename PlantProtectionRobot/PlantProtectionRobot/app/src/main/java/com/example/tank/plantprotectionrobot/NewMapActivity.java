@@ -187,8 +187,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         //实例化测绘list
         mappingList=new ArrayList<MappingGroup>();
 
-
-
         //初始化高德地图定位
         initMap();
         //初始化自定义地图
@@ -558,9 +556,9 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                            //   point.x = screenPoint.x/2+(gpslist.get(j).longitude*Math.cos(gpslist.get(j).latitude * Math.PI / 180) - bPoint.x*Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
                            //   point.y = screenPoint.y/2+(bPoint.y -gpslist.get(j).latitude) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
 
-                           point.x  = screenPoint.x / 2+ ((((double)gpslist.get(j).longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                           point.x  = screenPoint.x / 2+ ((((double)gpslist.get(j).longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
                            //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                           point.y= screenPoint.y / 2 + (bPoint.y - ((double)gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * ((double) screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                           point.y= screenPoint.y / 2 + (bPoint.y - ((double)gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * ( screenPoint.y * GPS_DIS / MAPMAX_DIS);
 
 
                            mListPointM.add(point);
@@ -610,14 +608,12 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
     }
 
-
     /***
      * 手势控制
      * @param v
      * @param event
      * @return
      */
-  //  public boolean onTouchEvent(MotionEvent event) {
   @Override
   public boolean onTouch(View v, MotionEvent event) {
       //手势监听
@@ -694,7 +690,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
                             } else {
 
-                                if(ratioO>=1 && ratioO < 10){
+                                if(ratioO>1 && ratioO < 10){
                                     ratio = ratio - (startDis - endDis)/100;
                                 }else if(ratioO >=10 && ratioO  < 100) {
 
