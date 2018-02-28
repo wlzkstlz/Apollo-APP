@@ -46,7 +46,6 @@ public class VibrationAndMusic {
 
     public void  stopVibration(){
         vib.cancel();
-
         vibratorWork =false;
 
     }

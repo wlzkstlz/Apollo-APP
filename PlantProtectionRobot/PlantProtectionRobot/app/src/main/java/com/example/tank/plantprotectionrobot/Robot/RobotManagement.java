@@ -31,8 +31,10 @@ public class RobotManagement{
     //指令
     private byte[] comBuf = new byte[6];
     public int pollCount;//轮询计数
+    public static final int ROBOT_OFFLINE_CNT = 3;
 
     public BLEService.RobotWorkingCallback robotWorkingCallback=null;
+    public boolean startRouteData =false;
 
     /***
      *
@@ -47,7 +49,6 @@ public class RobotManagement{
 
         //配置分时轮询
         pollingManagement.setPolling(5);
-        pollingManagement.haveWorkMapPageCtr=false;
 
         pollCount=0;
 
@@ -60,15 +61,30 @@ public class RobotManagement{
             public void askInCenterRobot() {
             //    Log.d(TAG,"RobotManagement->askAutoRobot()");
 
-                if(workBleGroup !=null && workRobotList.size()>0) {
+                if(startRouteData == false) {
 
-                    if(workBleGroup.mBLE !=null && workBleGroup.isConnectGattCh !=null) {
-                        //
-                        if(getInCenterCommond()){
-                          workBleGroup.sendCommand(comBuf);
-                            pollCount++;
-                            if(pollCount>=workRobotList.size()){
-                                pollCount=0;
+                    if (workBleGroup != null && workRobotList.size() > 0) {
+
+                        for (int i = 0; i < workRobotList.size(); i++) {//判断是否有机器人掉线
+                            if (workRobotList.get(i).checkCount > ROBOT_OFFLINE_CNT && workRobotList.get(i).isWorking == true) {
+
+                                workRobotList.get(i).robotOnline = false;
+                                if (robotWorkingCallback != null) {
+                                    robotWorkingCallback.RobotStateChanged(workRobotList.get(i));
+
+                                }
+                                //         Log.d(TAG,"RobotManagement->robotOnline="+false);
+                            }
+                        }
+
+                        if (workBleGroup.mBLE != null && workBleGroup.isConnectGattCh != null) {
+                            //
+                            if (getInCenterCommond()) {
+                                workBleGroup.sendCommand(comBuf);
+                                pollCount++;
+                                if (pollCount >= workRobotList.size()) {
+                                    pollCount = 0;
+                                }
                             }
                         }
                     }
@@ -79,13 +95,14 @@ public class RobotManagement{
             @Override
             public void askInWorkMapRobot(){
 
-                if(workBleGroup !=null && workRobotList.size()>0) {
+                if(startRouteData == false) {
+                    if (workBleGroup != null && workRobotList.size() > 0) {
 
-                    if (workBleGroup.mBLE != null && workBleGroup.isConnectGattCh != null) {
+                        if (workBleGroup.mBLE != null && workBleGroup.isConnectGattCh != null) {
 
-
-                        if (getInWorkMapCommond()) {
-                            workBleGroup.sendCommand(comBuf);
+                            if (getInWorkMapCommond()) {
+                                workBleGroup.sendCommand(comBuf);
+                            }
                         }
                     }
                 }
@@ -101,8 +118,8 @@ public class RobotManagement{
     private boolean getInCenterCommond(){
 
         if(pollCount <= workRobotList.size()-1){
-            //因为只有一个是手动控制，如果当前不是就调到下一个
-            if(workRobotList.get(pollCount).workAuto != TankRobot.CTR_AUTO){
+            //跳过在工作地图界面的机器人，
+            if(workRobotList.get(pollCount).inWorkPage == true){
                 pollCount++;
                 if(pollCount>=workRobotList.size()){
                     pollCount=0;
@@ -110,7 +127,7 @@ public class RobotManagement{
             }
 
             //装指令
-            if(workRobotList.get(pollCount).workAuto == TankRobot.CTR_AUTO) {
+            if(workRobotList.get(pollCount).inWorkPage == false) {
                 comBuf[0] = (byte) (workRobotList.get(pollCount).heatDataMsg.robotId);//机器人ID
                 comBuf[1] = (byte) (workRobotList.get(pollCount).heatDataMsg.robotId >> 8);
                 comBuf[2] = workRobotList.get(pollCount).LORA_CH;                      //信道
@@ -119,11 +136,8 @@ public class RobotManagement{
                 comBuf[5] = 0;
                 workRobotList.get(pollCount).checkCount++;//掉线检测
 
-                Log.d(TAG,"RobotManagement->发送getInCenterCommond()");
+          //      Log.d(TAG,"RobotManagement->getInCenterCommond()");
 
-              //  for(int i=0;i<workRobotList.size();i++){
-              //      Log.d(TAG,"RobotManagement->workAuto="+workRobotList.get(i).workAuto);
-             //   }
             }
 
         }else{
@@ -138,7 +152,7 @@ public class RobotManagement{
      */
     private boolean getInWorkMapCommond(){
         for(int i=0;i<workRobotList.size();i++){
-            if(workRobotList.get(i).workAuto != TankRobot.CTR_AUTO){
+            if(workRobotList.get(i).inWorkPage == true){
 
                 //装指令
                 comBuf[0] = (byte)(workRobotList.get(i).heatDataMsg.robotId);
@@ -149,7 +163,7 @@ public class RobotManagement{
                 comBuf[5] =0;
                 workRobotList.get(i).checkCount++;//掉线检测
 
-                Log.d(TAG,"RobotManagement->getInWorkMapCommond");
+           //     Log.d(TAG,"RobotManagement->getInWorkMapCommond");
 
                 break;
             }

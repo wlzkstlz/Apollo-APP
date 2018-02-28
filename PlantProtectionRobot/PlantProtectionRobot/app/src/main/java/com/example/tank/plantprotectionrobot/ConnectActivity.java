@@ -45,6 +45,7 @@ public class ConnectActivity extends AppCompatActivity {
     private final int ROBOT_ADD_SUCCESS = 10;
     private final int ROBOT_ADD_FAIL=20; //添加失败
     private final int ROBOT_NOMSG_BACK=0;//没有收到回复
+    private final int BLE_CONNECT_ON = 30;
 
     ArrayList<TankRobot> workRobotList;
 
@@ -57,8 +58,12 @@ public class ConnectActivity extends AppCompatActivity {
         setContentView(R.layout.activity_connect);
         connnetBtn = (Button)findViewById(R.id.button1);
         editText = (EditText)findViewById(R.id.editText1);
+   //    editText.setEnabled(false);
 
        initProgressDialog();//初始化进度条
+
+       progressDialog.setMessage("正在连接电台");
+       progressDialog.show();
        //开启蓝牙Service
        intentSev = new Intent(this, BLEService.class);
        connnetBtn.setOnClickListener(new View.OnClickListener() {
@@ -81,6 +86,10 @@ public class ConnectActivity extends AppCompatActivity {
                        new AlertDialog.Builder(ConnectActivity.this);
 
                switch (msg.what){
+                   case BLE_CONNECT_ON:
+                 //      editText.setEnabled(true);
+                       progressDialog.cancel();
+                       break;
                    case ROBOT_ADD_FAIL://添加失败
 
                     //   progressDialog.cancel();
@@ -163,7 +172,9 @@ public class ConnectActivity extends AppCompatActivity {
                         tankRobot.checkCount=4;
                         binder.addWorkRobot(tankRobot);
                     }
+                    progressDialog.setMessage("正在添加机器人");
                     progressDialog.show();
+
                     mHandler.sendEmptyMessageDelayed(ROBOT_NOMSG_BACK, 4000);
                 }
 
@@ -192,7 +203,7 @@ public class ConnectActivity extends AppCompatActivity {
     private void initProgressDialog(){
         progressDialog = new ProgressDialog(this);
         progressDialog.setTitle("提示");
-        progressDialog.setMessage("正在添加机器人");
+
         progressDialog.setCancelable(false);
     }
     /***
@@ -209,6 +220,10 @@ public class ConnectActivity extends AppCompatActivity {
             binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT);
             binder.startScanBle();//搜索蓝牙
             workRobotList = binder.getRobotList();
+
+            if(workRobotList.size()>0){//不是第一次添加，蓝牙已经连接
+                mHandler.sendEmptyMessage(BLE_CONNECT_ON);
+            }
 
             binder.getService().setRobotWorkingCallback(new BLEService.RobotWorkingCallback() {
                 @Override
@@ -237,6 +252,7 @@ public class ConnectActivity extends AppCompatActivity {
                             binder.connectBle(null,true);
                             break;
                         case BLEService.BLE_CONNECT_ON:
+                            mHandler.sendEmptyMessage(BLE_CONNECT_ON);
                             break;
                     }
                 }
@@ -246,7 +262,7 @@ public class ConnectActivity extends AppCompatActivity {
                     if (mBleDeviceList.size()>0) {
                         //连接蓝牙
                         binder.connectBle(mBleDeviceList.get(0),false);
-                        Log.d(TAG,"ConnectActivity->连接蓝牙"+mBleDeviceList.get(0).getName());
+                   //     Log.d(TAG,"ConnectActivity->连接蓝牙"+mBleDeviceList.get(0).getName());
                     }
                 }
 

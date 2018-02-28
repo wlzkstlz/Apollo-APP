@@ -113,6 +113,7 @@ public class WorkBleGroup {
             } else {
                 findBleList.add(device);
             //    Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
+
             }
 
         }else{

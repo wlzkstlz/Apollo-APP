@@ -19,6 +19,7 @@ import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.example.tank.plantprotectionrobot.DataProcessing.GpsPoint;
 import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
 import com.example.tank.plantprotectionrobot.R;
 import com.example.tank.plantprotectionrobot.Robot.CommondType;
@@ -54,6 +55,7 @@ public class BLEService extends Service {
     public static final int BLE_SCAN_OFF = 11;
     public static final int BLE_SCAN_ON = 10; //扫描到蓝牙
     public static final int BLE_CONNECTED=40;//当前正在连接的蓝牙反馈
+    public static final int BLE_SEND_ROUTE_END= 50;//路径文件传输完
 
     private final int SCAN_PERIOD =5000;//蓝牙搜索时间
 
@@ -95,9 +97,6 @@ public class BLEService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.d(TAG,"--onUnbind()--");
-    //    mappingCallback = null;//解除绑定后清除回调类
-     //   robotWorkingCallback =null;
-
         return super.onUnbind(intent);
     }
 
@@ -111,28 +110,70 @@ public class BLEService extends Service {
         return new BleBinder();
     }
 
-
     /***
      *
      */
     public class BleBinder extends Binder {
         public  BLEService getService() {
-            workBleGroup.isWorkingId = BLE_HANDLE_CONECT;
-            //新界面默认，获取服务后设置
-            if(robotManagement.workRobotList !=null) {//取消进入工作地图界面标志
-                for (int i = 0; i < robotManagement.workRobotList.size(); i++) {
-                    robotManagement.workRobotList.get(i).inWorkPage=false;
-                    pollingManagement.haveWorkMapPageCtr =false;
-                }
-            }
             return BLEService.this;
         }
 
+        //获取正在工作的蓝牙类型Id
+        public int getIsWorkingId(){
+            return workBleGroup.isWorkingId;
+        }
+
+        /***
+         * 开始传输路径文件
+         */
+        public void sendRouteData(final ArrayList<MappingGroup> route){
+           robotManagement.startRouteData = true;//开始传输路径文件
+
+            new Thread(){
+                @Override
+                public void run() {
+
+                    /*
+                    for(int i=0;i<route.size();i++){
+                         if(workBleGroup.isConnectGattCh == null){
+                        workBleGroup.sendCommand();
+                        }
+                    }*/
+                    byte[] data = new byte[19];
+                    for(int i=0;i<19;i++){
+                        data[i] = 0x55;
+                    }
+
+                    workBleGroup.sendCommand(data);
+                    if(robotWorkingCallback !=null){//文件传输完
+                        robotWorkingCallback.BleStateChanged(BLE_SEND_ROUTE_END);
+                    }
+                    super.run();
+                }
+            }.start();
+        }
         /***
          * 设置时间碎片分配，即是进入工作地图界面的机器人分配更多时间碎片
          */
-        public void setPollingFragment(){
-           pollingManagement.haveWorkMapPageCtr =true;
+        public void IntoWorkMapPage(boolean workMapPage){
+
+            if(workMapPage == true) {
+                pollingManagement.setHaveWorkMapPageCtr(true);
+            }else{
+
+                if (robotManagement.workRobotList != null) {//取消进入工作地图界面标志
+                    for (int i = 0; i < robotManagement.workRobotList.size(); i++) {
+                        robotManagement.workRobotList.get(i).inWorkPage = false;
+                    }
+                }
+
+                pollingManagement.setHaveWorkMapPageCtr(false);
+            }
+
+        }
+
+        public void nextPage(String page,String nextPage){
+
         }
         /***
          * 获取在线的机器人列表
@@ -158,7 +199,6 @@ public class BLEService extends Service {
             if(robotManagement.workRobotList.size() >=2 ){
                 robotManagement.workRobotList.get(robotManagement.workRobotList.size()-2).workAuto = TankRobot.CTR_AUTO;
             }
-
         }
         /***
          *
@@ -172,6 +212,7 @@ public class BLEService extends Service {
             if(type != workBleGroup.isWorkingId){
                 mBLE.disconnect();
                 mBLE.close();
+                workBleGroup.isConnectGattCh = null;
                 Log.d(TAG," Bleservice->断开连接");
             }
             //重新连接时，先清除之前的回调函数
@@ -205,13 +246,14 @@ public class BLEService extends Service {
                 mBLE.disconnect();
                 mBLE.close();
                 workBleGroup.isWorkingId = 0;
+                workBleGroup.isConnectGattCh = null;
             }
         }
         //开始连接蓝牙
         /***
          *
          * @param bluetoothDevice
-         * @param connetType 连接类型，true 表示掉线重连接 fale 重新连接新地址
+         * @param connetType 连接类型，true 表示掉线重连接 false 重新连接新地址
          * @return
          */
         public boolean connectBle(BluetoothDevice bluetoothDevice,boolean connetType){
@@ -544,7 +586,7 @@ public RobotWorkingCallback getRobotWorkingCallback(){
         @Override
         public void onConnect(BluetoothGatt gatt) {
             Log.i(TAG,gatt.getDevice().getAddress()+":连接成功");
-            msgWhat = BLE_CONNECT_ON;
+         //   msgWhat = BLE_CONNECT_ON;
         }
     };
 
@@ -605,41 +647,7 @@ public RobotWorkingCallback getRobotWorkingCallback(){
                 break;
                 case BLEService.BLE_HANDLE_CONECT:
                     HeatDataMsg heatDataMsg = workBleGroup.translateTaskData(characteristic);
-
-                    for (int i=0;i<robotManagement.workRobotList.size();i++){
-
-                        if(heatDataMsg.robotId == robotManagement.workRobotList.get(i).heatDataMsg.robotId){
-
-
-                            robotManagement.workRobotList.get(i).checkCount = 0;//掉线检测清零
-                            robotManagement.workRobotList.get(i).heatDataMsg = heatDataMsg;//更新信息
-
-                            //返回值更新控制方式
-
-                            switch (heatDataMsg.curState){
-                                case TankRobot.CTR_AUTO:
-                                    robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_AUTO;
-                                    break;
-                                case TankRobot.CTR_HANLDE:
-                                    robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_HANLDE;
-                                    break;
-                                case TankRobot.CTR_HANDLE_TURN:
-                                    robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_HANDLE_TURN;
-                                    break;
-
-                            }
-
-
-                            //任何指令都只执行一次，执行完后变为心跳指令
-                            robotManagement.workRobotList.get(i).heatDataMsg.command = CommondType.CMD_HEARTBEAT;
-                            //返回数据
-                            if(robotWorkingCallback !=null){
-                                robotWorkingCallback.RobotStateChanged(robotManagement.workRobotList.get(i));
-                            }
-
-                            break;
-                        }
-                    }
+                    translateReturnMsg(heatDataMsg);
 
                     break;
             }
@@ -648,6 +656,58 @@ public RobotWorkingCallback getRobotWorkingCallback(){
         }
     };
 
+    /***
+     * 处理返回信息
+     */
+    private void translateReturnMsg(HeatDataMsg heatDataMsg){
+
+        for (int i=0;i<robotManagement.workRobotList.size();i++){
+
+            if(heatDataMsg.robotId == robotManagement.workRobotList.get(i).heatDataMsg.robotId){
+
+                robotManagement.workRobotList.get(i).checkCount = 0;//掉线检测清零
+
+                //-------------在这里处理返回指令---------//
+                //-----------------------------------------//
+                //机器人可能重新装载啦新指令，所以不能覆盖新指令
+                if(heatDataMsg.command  != robotManagement.workRobotList.get(i).heatDataMsg.command){
+                    heatDataMsg.command = robotManagement.workRobotList.get(i).heatDataMsg.command;
+                }else{
+                    //---------------------------//
+                    //---------------------------//
+              //      heatDataMsg.command = CommondType.CMD_HEARTBEAT;//指令执行成功后转为心跳
+                }
+                robotManagement.workRobotList.get(i).heatDataMsg = heatDataMsg;//更新信息
+                robotManagement.workRobotList.get(i).robotOnline = true;
+           //     Log.d(TAG,"BLEService->"+robotManagement.workRobotList.get(i).workAuto);
+//
+                //返回值更新控制方式
+
+                switch (heatDataMsg.curState){
+                    case TankRobot.CTR_AUTO:
+                        robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_AUTO;
+                        break;
+                    case TankRobot.CTR_HANLDE:
+                        robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_HANLDE;
+                        break;
+                    case TankRobot.CTR_HANDLE_TURN:
+                        robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_HANDLE_TURN;
+                        break;
+
+                }
+
+                pollingManagement.onPollingNext();//收到返回进入下一组轮询
+                //返回数据
+                if(robotWorkingCallback !=null){
+                    robotWorkingCallback.RobotStateChanged(robotManagement.workRobotList.get(i));
+                }
+
+                break;
+            }
+        }
+    }
+
+    //连接串口服务器
     private void displayGattServices(List<BluetoothGattService> gattServices) {
         if (gattServices == null) return;
 
@@ -664,6 +724,7 @@ public RobotWorkingCallback getRobotWorkingCallback(){
 
                     Log.i(TAG,"连接到串口BLE");
                     workBleGroup.isConnectGattCh = gattCharacteristic;
+                    msgWhat = BLE_CONNECT_ON;
 
                 }else if(gattCharacteristic.getUuid().toString().equals(UUID_KEY_CAR)){
                     //设置串口可接收通知的，设置其可以接收通知（notification）
@@ -671,6 +732,7 @@ public RobotWorkingCallback getRobotWorkingCallback(){
 
                     Log.i(TAG,"连接到串口BLE");
                     workBleGroup.isConnectGattCh = gattCharacteristic;
+                    msgWhat = BLE_CONNECT_ON;
                 }
             }
         }

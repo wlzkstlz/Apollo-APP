@@ -133,7 +133,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
     private TimerTask timerTask;
 
-
     //测绘擦除状态 false表示字测绘运行，true表示正在擦除
     private boolean detMapping;
     private boolean getLocationFlag;//定位状态false失败

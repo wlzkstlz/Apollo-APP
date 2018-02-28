@@ -1,5 +1,6 @@
 package com.example.tank.plantprotectionrobot;
 
+import android.app.ProgressDialog;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
@@ -11,6 +12,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -59,6 +61,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private TextView robotMsgText;   //机器人状态
     private TextView zoomText;     //比例尺
     private LinearLayout backgroundAlarm;
+    private ProgressDialog progressDialog;//等待对话框
 
     //地图相关
     private WorkMapView workMapView;
@@ -79,11 +82,15 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
     //路径文件组
     private ArrayList<ArrayList<GpsPoint>> routeList_M = new ArrayList<ArrayList<GpsPoint>>();//主干道
-    private ArrayList<ArrayList<GpsPoint>> routeList_L = new ArrayList<ArrayList<GpsPoint>>();                  //果园
+    private ArrayList<ArrayList<GpsPoint>> routeList_L = new ArrayList<ArrayList<GpsPoint>>();//果园
+    private ArrayList<ArrayList<MappingGroup>> routeListGpsList = new ArrayList<ArrayList<MappingGroup>>();//果园
 
     private ArrayList<String> routeNameList = new ArrayList<String>();
     private ArrayList<Integer> matchFlagList = new ArrayList<Integer>();
     private int isSelectRobotId; //当前控制的机器人ID
+    private TankRobot isWorkRobot=null;//当前监控的机器人
+
+    private boolean satrtTransfeRoute = false;
 
 
     private GpsPoint screenPoint= new GpsPoint(); //获取屏幕的大小
@@ -103,9 +110,16 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private final int BLE_CONNECT_OFF =21;//蓝牙连接失败
     private final int BLE_DATA_ON = 30; //接收到数据
     private final int ROBOT_UCONNECT =40;//RTK掉线
+    private final int COMD_NO_RETURN = 50; //发送指令无返回
+    private final int COMD_CHOICE_DELAY= 60;//重新选择后等待一段时间在更新界面
+    private final int COMD_BLE_WAIT_OFF= 70;//WAIT指令发送超时
+    private final int COMD_BLE_START_OFF= 71;//START_指令发送超时
+    private final int COMD_BLE_END_OFF= 72;//END指令发送超时
+    private final int SEND_ROUTE_DATA_FAIL =90;//连接上算法板蓝牙
     private final int DRAW_MAP =1;
 
-    private TankRobot isWorkRobot=null;//当前监控的机器人
+
+
 
     private final  String TAG = "Tank001";
 
@@ -120,8 +134,18 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private final int MAPRATIO_MAX = 9;//地图放大有10个等级
     private final int MAPRATIOZOOM_DEFAULT=4;
 
+    private  int matchRouteId =-1;//匹配果园路径序号
+
+    //手势控制相关
+    private PointF startPoint = new PointF(); //手指按下的坐标
 
     private boolean mapFirstInit=true;//第一次初始化，获取画布尺寸
+    private boolean ctrSpinnerUpdate = true;//第一次进入，防止自己选择
+    private boolean changeComd =false;
+
+
+    private VibrationAndMusic vibrationAndMusic;
+
 
 
     //高德地图
@@ -132,8 +156,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private boolean locatonFlag;  //权限获取标志1表示获取位置权限成功
 
 
-    //手势控制相关
-    private PointF startPoint = new PointF(); //手指按下的坐标
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -163,20 +186,133 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         //初始化高德地图
         initAmap();
 
+        initProgressDialog();
+        vibrationAndMusic = new VibrationAndMusic(WorkMapActivity.this);
+
         //消息处理
         handler = new Handler(){
             @Override
             public void handleMessage(Message msg) {
                 super.handleMessage(msg);
+
+                AlertDialog.Builder msgDialog =
+                        new AlertDialog.Builder(WorkMapActivity.this);
+
                 switch(msg.what){
                     case DRAW_MAP:
                         drawMap();
                         break;
-                    case BLE_DATA_ON:
-                        updateData(true);
-                        break;
                     case ROBOT_UCONNECT:
                         updateData(false);
+                        break;
+                    case COMD_NO_RETURN:
+                        updateData(false);
+                        break;
+                    case COMD_CHOICE_DELAY:
+                        changeComd = false;
+                        break;
+                    case BLE_DATA_ON:
+                        if(changeComd == false) {
+                            updateData(true);
+                        }
+                        //准备开始传路径文件
+                        if(satrtTransfeRoute == true) {
+
+                            if(isWorkRobot.heatDataMsg.command != CommondType.CMD_BLE_START) {
+                                boolean flag = false;
+                                for (int i = 0; i < workRobotList.size(); i++) {
+                                    if (workRobotList.get(i).heatDataMsg.command == CommondType.CMD_WAIT) {
+                                        flag = true;
+                                    }
+                                }
+                                //所有等待指令都发送完，开始发送CMD_BLE_START;
+                                if (flag == false) {
+                                    for (int i = 0; i < workRobotList.size(); i++) {
+
+                                        if (workRobotList.get(i).heatDataMsg.robotId == isSelectRobotId) {
+                                            workRobotList.get(i).heatDataMsg.command = CommondType.CMD_BLE_START;
+                                            handler.removeMessages(COMD_BLE_WAIT_OFF);//正常，取消超时
+                                            handler.sendEmptyMessageDelayed(COMD_BLE_START_OFF,3000);
+
+                                        }
+                                    }
+                                }
+                            }else  if(isWorkRobot.heatDataMsg.command == CommondType.CMD_BLE_START){//接收到返回指令 开始传输路径文件
+                                //  binder.unconnectBle();//断开控制蓝牙
+                                handler.removeMessages(COMD_BLE_START_OFF);//正常，取消超时
+                                binder.setBleWorkTpye(BLEService.BLE_ROBOT_CONECT);
+                                binder.startScanBle();
+                            }else if(isWorkRobot.heatDataMsg.command == CommondType.CMD_BLE_END){
+
+                            }
+                        }
+
+                        break;
+
+                    case SEND_ROUTE_DATA_FAIL:
+                        progressDialog.cancel();
+
+                        msgDialog.setTitle("提示");
+                        msgDialog.setMessage("文件传输失败");
+                        msgDialog.show();
+
+                        //连接失败返回到遥控器蓝牙
+                        if(binder != null){
+                            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT);
+                            binder.startScanBle();
+                        }
+
+                        break;
+                    case COMD_BLE_WAIT_OFF://wait指令发送超时，不用管，继续发送CMD_BLE_START指令
+                        for (int i = 0; i < workRobotList.size(); i++) {
+
+                            if (workRobotList.get(i).heatDataMsg.robotId == isSelectRobotId) {
+                                workRobotList.get(i).heatDataMsg.command = CommondType.CMD_BLE_START;
+                                handler.sendEmptyMessageDelayed(COMD_BLE_START_OFF,3000);//装载超时
+                            }
+                        }
+                        break;
+                    case COMD_BLE_START_OFF:
+
+                        if(binder !=null) {
+                            binder.setBleWorkTpye(BLEService.BLE_ROBOT_CONECT);
+                            binder.startScanBle();
+                        }
+                        break;
+                    case COMD_BLE_END_OFF:
+
+                        //回到工作模式下
+                        break;
+
+                    case  BLE_CONNECT_ON:
+
+                        if(binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
+                            if (binder != null) {//连接算法板蓝牙
+                                if (binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
+
+                                    //开始发送数据
+                                    if (matchRouteId >= 0 && matchRouteId < routeListGpsList.size())
+                                        binder.sendRouteData(routeListGpsList.get(matchRouteId));
+                                }
+                            }
+                        }else if(binder.getIsWorkingId() == BLEService.BLE_HANDLE_CONECT){
+
+                            if(satrtTransfeRoute == true) {
+
+                                binder.IntoWorkMapPage(true);
+                                for (int i = 0; i < workRobotList.size(); i++) {
+                                    if (isSelectRobotId == workRobotList.get(i).heatDataMsg.robotId) {
+                                        workRobotList.get(i).inWorkPage = true;
+                                        workRobotList.get(i).heatDataMsg.command = CommondType.CMD_BLE_END;
+                                        handler.sendEmptyMessageDelayed(COMD_BLE_END_OFF,3000);
+                                    }
+
+                                }
+
+                                satrtTransfeRoute =false;
+                            }
+                        }
+
                         break;
 
                 }
@@ -185,40 +321,53 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
     }
 
+    private void initProgressDialog(){
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setTitle("提示");
+        progressDialog.setMessage("正在传输路径文件");
+        progressDialog.setCancelable(false);
+    }
     /***
      * 轮序获取的数据，更新显示
      */
     private void updateData(boolean onLine){
-        if(onLine == true)
-        if(isWorkRobot != null){
-            String state="";
-            tankLevelText.setText(""+isWorkRobot.heatDataMsg.tankLevel+"%");
-            batteryText.setText(""+isWorkRobot.heatDataMsg.batteryPercentage+"%");
-            if(isWorkRobot.heatDataMsg.curState < 100) {
-                state +="作业中";
-            }else{
-                state +="完成";
 
-            }
-            backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.tankgreen));
-            if(isWorkRobot.heatDataMsg.tankLevel < TANKLEVEL_MIN){
-                state +="|加药";
-                backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorRed));
-            }
-            if(isWorkRobot.heatDataMsg.batteryPercentage<BATTERY_MIN){
-                state +="|换电";
-                backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorRed));
-            }
-            if(isWorkRobot.heatDataMsg.dAlarm == true){
-                state +="|救援";
-                backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorRed));
-            }
-            robotMsgText.setText(state);
-            spinner1.setEnabled(true);//禁用
+        if(onLine == true) {
+            if (isWorkRobot != null) {
+                String state = "";
+                tankLevelText.setText("药量 " + isWorkRobot.heatDataMsg.tankLevel + "%");
+                batteryText.setText("电量 " + isWorkRobot.heatDataMsg.batteryPercentage + "%");
+                if (isWorkRobot.heatDataMsg.curState < 100) {
+                    state += "作业中";
+                } else {
+                    state += "完成";
 
+                }
+                backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.tankgreen));
+                if (isWorkRobot.heatDataMsg.tankLevel < TANKLEVEL_MIN) {
+                    state += "|加药";
+                    backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorRed));
+                }
+                if (isWorkRobot.heatDataMsg.batteryPercentage < BATTERY_MIN) {
+                    state += "|换电";
+                    backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorRed));
+                }
+                if (isWorkRobot.heatDataMsg.dAlarm == true) {
+                    state += "|救援";
+                    backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorRed));
+                }
+                robotMsgText.setText(state);
+
+                if(changeComd == false) {
+                    spinner1.setEnabled(true);//
+                    spinner1.setSelection(isWorkRobot.workAuto);
+                }
+
+            //    ctrSpinnerUpdate =true;
+            }
         }else{
-            tankLevelText.setText("-");
-            batteryText.setText("-");
+            tankLevelText.setText("药量 --");
+            batteryText.setText("电量 --");
             robotMsgText.setText("离线");
             backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorGray));
             spinner1.setEnabled(false);//禁用
@@ -236,6 +385,9 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         centerBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                if(binder !=null){
+                    binder.IntoWorkMapPage(false);
+                }
                 startActivity(centerCtr);
             }
         });
@@ -245,6 +397,20 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
             public void onClick(View view) {
                 startBtn.setVisibility(View.INVISIBLE);
                 spinner1.setVisibility(View.VISIBLE);
+
+                //准备传输路径文件，向所有机器发送等待指令
+                satrtTransfeRoute = true;
+                for (int j = 0; j < workRobotList.size(); j++) {
+                    binder.IntoWorkMapPage(false);//取消分时轮询多分配的时间
+                    workRobotList.get(j).heatDataMsg.command = CommondType.CMD_WAIT;
+                }
+                //发送等待指令超时
+                handler.sendEmptyMessageDelayed(COMD_BLE_WAIT_OFF,3000);
+                //停止震动
+                if(vibrationAndMusic.getVibrate()){
+                    vibrationAndMusic.stopVibration();
+                }
+                progressDialog.show();
             }
         });
         //控制选择
@@ -252,41 +418,59 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
             @Override
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
 
-                switch (i){
-                    case 0:
-                        //自动驾驶
-                        for(int j=0;j<workRobotList.size();j++){
-                            if(workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId){
-                                workRobotList.get(j).heatDataMsg.command = CommondType.CMD_AUTO;
-                                break;
+                if(ctrSpinnerUpdate == false) {
+                    switch (i) {
+                        case 0:
+                            //自动驾驶
+                            for (int j = 0; j < workRobotList.size(); j++) {
+                                if (workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId) {
+                                    workRobotList.get(j).heatDataMsg.command = CommondType.CMD_AUTO;
+                                    Log.d(TAG,"WorkMapActivity->进入="+workRobotList.get(j).heatDataMsg.command);
+                                    changeComd = true;
+                                    handler.sendEmptyMessageDelayed(COMD_CHOICE_DELAY,1000);//等待一段时间后才刷新界面
+                                    break;
+                                }
                             }
-                        }
 
-                        break;
-                    case 1:
-                        //手动控制
-                        for(int j=0;j<workRobotList.size();j++){
-                            if(workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId){
-                                workRobotList.get(j).heatDataMsg.command = CommondType.CMD_MANUAL;
-                                break;
+                            break;
+                        case 1:
+                            //手动控制
+                            for (int j = 0; j < workRobotList.size(); j++) {
+                                if (workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId) {
+                                    workRobotList.get(j).heatDataMsg.command = CommondType.CMD_MANUAL;
+                                    Log.d(TAG,"WorkMapActivity->进入="+workRobotList.get(j).heatDataMsg.command);
+                                    changeComd = true;
+                                    break;
+                                }
                             }
-                        }
-                        break;
-                    case 2:
-                        //手动转场
-                        for(int j=0;j<workRobotList.size();j++){
-                            if(workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId){
-                                workRobotList.get(j).heatDataMsg.command = CommondType.CMD_TRANSITION;
-                                break;
+                            break;
+                        case 2:
+                            //手动转场
+                            for (int j = 0; j < workRobotList.size(); j++) {
+                                if (workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId) {
+                                    workRobotList.get(j).heatDataMsg.command = CommondType.CMD_TRANSITION;
+                                    Log.d(TAG,"WorkMapActivity->进入="+workRobotList.get(j).heatDataMsg.command);
+                                    changeComd = true;
+                                    break;
+                                }
                             }
-                        }
-                        break;
+                            break;
+                    }
+
+                    //延时消息处理，若无回复就执行失败
+                    handler.sendEmptyMessageDelayed(COMD_NO_RETURN,3000);
+
+                }else {
+                    ctrSpinnerUpdate = false;
                 }
+
             }
+
 
             @Override
             public void onNothingSelected(AdapterView<?> adapterView) {
-
+                Log.d(TAG,"onNothingSelected触发");
+             //
             }
         });
 
@@ -516,6 +700,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                                    getMappingData(filedir + File.separator + files[k].getName(), gpslist, len[0]);
 
+
                                    //当前默认只有一个主干道
                                    //   Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
                                    ArrayList<GpsPoint> pointList = new ArrayList<GpsPoint>();
@@ -533,7 +718,6 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                    //        Log.d(TAG, "测绘点:" + gpslist.get(j).longitude + " " + gpslist.get(j).latitude);
                                   //     }
 
-
                                        //     Log.d(TAG, "RTK状态：" + gpslist.get(j).rtkState + " 经度：" + gpslist.get(j).longitude + " 纬度：" + gpslist.get(j).latitude + " 海拔：" + gpslist.get(j).altitude + " roll：" + gpslist.get(j).roll
                                        //             + " pitch：" + gpslist.get(j).pitch + " 方向：" + gpslist.get(j).yaw + " 周：" + gpslist.get(j).GPSTime_weeks + " 时间：" + gpslist.get(j).GPSTime_ms);
 
@@ -541,8 +725,10 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                                    if(files[k].getName().indexOf("L_") !=-1) {
                                        routeList_L.add(pointList);//果园
+
                                        routeNameList.add(files[k].getName());
 
+                                       routeListGpsList.add(gpslist);
                                        for(int p=0;p<workRobotList.size();p++){//标记匹配果园路径
                                            if(workRobotList.get(p).workMatch.equals(files[k].getName())){
                                                matchFlagList.add(1);//表示已匹配
@@ -591,7 +777,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 if(workRobotList.get(i).heatDataMsg.robotId == isSelectRobotId){
                     Log.d(TAG,"当前机器人ID:"+isSelectRobotId+" 匹配果园："+workRobotList.get(i).workMatch.orchardName);
                     workRobotList.get(i).inWorkPage = true;
-                    binder.setPollingFragment();//进入控制界面，分配时间碎片
+                    binder.IntoWorkMapPage(true);//进入控制界面，分配时间碎片
                     break;
                 }
             }
@@ -603,39 +789,38 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
             binder.getService().setRobotWorkingCallback(new BLEService.RobotWorkingCallback() {
                 @Override
                 public void RobotStateChanged(TankRobot tankRobot) {
-                    if(isSelectRobotId == tankRobot.heatDataMsg.robotId){
-                        if(tankRobot.checkCount > CenterControlActivity.ROBOT_OFFLINE_CNT  ||
-                                (tankRobot.heatDataMsg.rtkState & 0x03) != 0x03){//掉线
-
-                          handler.sendEmptyMessage(ROBOT_UCONNECT);
-
-                        }else{
-                            isWorkRobot = tankRobot;
-                            handler.sendEmptyMessage(BLE_DATA_ON);
-                        }
-
-                 //       robotPosition.x = tankRobot.heatDataMsg.poseLongitude;
-                //        robotPosition.y = tankRobot.heatDataMsg.poseLatitude;
-
-                        //坐标转换
-                        robotPosition.x  = screenPoint.x / 2+ ((((double)tankRobot.heatDataMsg.poseLongitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(tankRobot.heatDataMsg.poseLatitude/MappingGroup.INM_LON_LAT_SCALE) - basicPosition.x * Math.cos(basicPosition.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                        //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                        robotPosition.y = screenPoint.y / 2 + (basicPosition.y - ((double)tankRobot.heatDataMsg.poseLatitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
-
-
-                    }
+                    translateChangeMsg(tankRobot);
                 }
 
                 @Override
                 public void BleStateChanged(int msg) {
                     switch(msg){
+                        case BLEService.BLE_SCAN_OFF:
+                            if(binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
+                                handler.sendEmptyMessage(SEND_ROUTE_DATA_FAIL);
+                            }else{
+                                binder.startScanBle();//继续搜索
+                            }
+                            break;
                         case BLEService.BLE_CONNECT_OFF:
                             //掉线重连
-                            binder.connectBle(null,true);
+                            if(binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
+                                handler.sendEmptyMessage(SEND_ROUTE_DATA_FAIL);
+                            }else{
+                                binder.connectBle(null, true);
+                            }
                             break;
                         case BLEService.BLE_CONNECT_ON:
+                            handler.sendEmptyMessage( BLE_CONNECT_ON);
+
                             break;
                         case BLEService.BLE_CONNECTED:
+                            break;
+                        case BLEService.BLE_SEND_ROUTE_END:
+                            if(binder !=null) {//数据发送完 转为连接遥控器蓝牙
+                              binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT);
+                              binder.startScanBle();
+                            }
                             break;
                     }
                 }
@@ -643,6 +828,34 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 @Override
                 public void BleScanChanged(ArrayList<BluetoothDevice> mBleDeviceList) {
 
+                    if(binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
+                        String robotIdStr = "R";
+                        if (isWorkRobot.heatDataMsg.robotId < 10) {
+                            robotIdStr = "0000" + isWorkRobot.heatDataMsg.robotId;
+                        } else if (isWorkRobot.heatDataMsg.robotId < 100) {
+                            robotIdStr = "000" + isWorkRobot.heatDataMsg.robotId;
+                        } else if (isWorkRobot.heatDataMsg.robotId < 1000) {
+                            robotIdStr = "00" + isWorkRobot.heatDataMsg.robotId;
+                        } else if (isWorkRobot.heatDataMsg.robotId < 10000) {
+                            robotIdStr = "0" + isWorkRobot.heatDataMsg.robotId;
+                        } else {
+                            robotIdStr = "" + isWorkRobot.heatDataMsg.robotId;
+                        }
+
+                        for (int i = 0; i < mBleDeviceList.size(); i++) {
+
+                            if (robotIdStr.equals(mBleDeviceList.get(i).getName())) {
+                                binder.connectBle(mBleDeviceList.get(i), false);//连接
+                                break;
+                            }
+                        }
+                    }else if(binder.getIsWorkingId() == BLEService.BLE_HANDLE_CONECT){
+                        if (mBleDeviceList.size()>0) {
+                            //连接蓝牙
+                            binder.connectBle(mBleDeviceList.get(0),false);
+                            //     Log.d(TAG,"ConnectActivity->连接蓝牙"+mBleDeviceList.get(0).getName());
+                        }
+                    }
                 }
 
                 @Override
@@ -660,6 +873,55 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         }
     }
 
+    /***
+     * 机器人返回信息处理
+     * @param tankRobot
+     */
+    private void translateChangeMsg(TankRobot tankRobot){
+        if(isSelectRobotId == tankRobot.heatDataMsg.robotId){
+            //接收到信息，取消COMD_NO_RETURN消息
+            handler.removeMessages(COMD_NO_RETURN);
+            //处理消息
+            if(tankRobot.robotOnline == false  || (tankRobot.heatDataMsg.rtkState & 0x03) != 0x03){//掉线
+
+                handler.sendEmptyMessage(ROBOT_UCONNECT);
+
+            }else{
+                isWorkRobot = tankRobot;
+                handler.sendEmptyMessage(BLE_DATA_ON);
+
+            }
+            //坐标转换
+            robotPosition.x  = screenPoint.x / 2+ ((((double)tankRobot.heatDataMsg.poseLongitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(tankRobot.heatDataMsg.poseLatitude/MappingGroup.INM_LON_LAT_SCALE) - basicPosition.x * Math.cos(basicPosition.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
+            //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
+            robotPosition.y = screenPoint.y / 2 + (basicPosition.y - ((double)tankRobot.heatDataMsg.poseLatitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
+            //判断是否与起点重合
+            for(int k=0;k<routeList_L.size();k++){
+
+                if(Math.abs(robotPosition.x - routeList_L.get(k).get(0).x) < (NEAR_DIS * screenPoint.x / MAPMAX_DIS)
+                        && Math.abs(robotPosition.y - routeList_L.get(k).get(0).y) < (NEAR_DIS * screenPoint.y / MAPMAX_DIS) ){
+                       if(workRobotList.get(k).workMatch.isMatch == false){
+                           //-------------------//
+                           //与起点重合可以开始传文件
+                         //  startBtn.setEnabled(true);
+                           matchRouteId = k;
+                           //手机振动
+                           if(vibrationAndMusic.getVibrate() == false) {
+                               vibrationAndMusic.Vibrate(new long[]{500, 1000, 500, 1000}, true);
+                           }
+
+                       }
+                }else{
+                    matchRouteId = -1;
+                    //手机振动
+                    if(vibrationAndMusic.getVibrate()) {
+                        vibrationAndMusic.stopVibration();
+                    }
+                  //  startBtn.setEnabled(false);
+                }
+            }
+        }
+    }
 
     /***
      * 初始高德地图

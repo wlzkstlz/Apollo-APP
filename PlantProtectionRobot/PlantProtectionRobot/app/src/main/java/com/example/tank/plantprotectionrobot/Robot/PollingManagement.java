@@ -1,5 +1,7 @@
 package com.example.tank.plantprotectionrobot.Robot;
 
+import android.util.Log;
+
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -17,19 +19,19 @@ public class PollingManagement {
     private int  pollTotalTime;//轮询总时间
     private PollCallback pollCallback;//回调接口
 
-   // private final int TIMECHIP = 400; //时间碎片默认默认值ms
-    private final int TIMECHIP = 1000; //时间碎片默认默认值ms
+    private final int TIMECHIP = 500; //时间碎片默认默认值ms
+ //   private final int TIMECHIP = 1000; //时间碎片默认默认值ms
     private final int TIME_MIN = 10;//定时器间隔时间ms
     private final int POLLING_MINT=5;//轮询最小周期，即5个时间片段为一个周期
 
 
-    public boolean haveWorkMapPageCtr;//true有进入工作地图界面的机器人
+    private boolean haveWorkMapPageCtr;//true有进入工作地图界面的机器人
 
     public PollingManagement(){
 
         haveWorkMapPageCtr=false;
         timeCount=0;
-        pollTotalTime=0;//总时间,单位10ms
+        pollTotalTime=0;
         timeChip = TIMECHIP/TIME_MIN;
         //分时轮询
         timerTask = new TimerTask() {
@@ -39,6 +41,7 @@ public class PollingManagement {
                 if(pollTotalTime>0) {
                     timeCount++;
                     if (haveWorkMapPageCtr == true) {//有手动控制
+
                         if (timeCount % timeChip == 0 && timeCount < pollTotalTime) {
                             pollCallback.askInWorkMapRobot();//将时间分配给进入工作地图界面的机器人
                         } else if (timeCount >= pollTotalTime) {
@@ -91,8 +94,14 @@ public class PollingManagement {
     /***
      * 分时轮询，在接收到返回信息后直接进入下一轮，问答
      */
-    public void onPollingAsk(){
-        timeCount = timeChip;
+    public void onPollingNext(){
+        //timeCount = timeChip;
+        timeCount = (timeCount/timeChip)*timeChip+timeChip-1;//下一组轮询
+    }
+
+    public void setHaveWorkMapPageCtr(boolean mapPageCtr){
+        haveWorkMapPageCtr = mapPageCtr;
+        Log.d("Tank001","PollingManagement->"+mapPageCtr);
     }
 
     /***

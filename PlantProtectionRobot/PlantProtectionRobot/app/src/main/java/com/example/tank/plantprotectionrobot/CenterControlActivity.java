@@ -62,6 +62,8 @@ public class CenterControlActivity extends AppCompatActivity {
     private Intent orchardList;
     private Intent connectMac;
     private Intent workMap;
+    //点击删除机器人时，不更新界面
+    private boolean detRobotFlag=false;
 
     //蓝牙
     /**搜索BLE终端*/
@@ -80,9 +82,10 @@ public class CenterControlActivity extends AppCompatActivity {
 
     //
     private final int EXIT_MSG=0;
+    private final int HEART_MSG = 20;  //接收到心跳数据
     private final int TANKLEVEL_MIN=5;
     private final int BATTERY_MIN =10;
-    public static final int ROBOT_OFFLINE_CNT = 3;
+
 
     private final String DEBUG_TAG = "Tank001";
     private  ListviewAdapterTwo listviewAdapterTwo;
@@ -165,7 +168,12 @@ public class CenterControlActivity extends AppCompatActivity {
         addBtn2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startActivity(connectMac);
+                if(workRobotList.size()<5) {
+                    startActivity(connectMac);
+                }else{
+                    Toast.makeText(getApplicationContext(), "最多只能添加5台机器人",
+                            Toast.LENGTH_SHORT).show();
+                }
             }
         });
         deleBtn.setOnClickListener(new View.OnClickListener() {
@@ -179,6 +187,7 @@ public class CenterControlActivity extends AppCompatActivity {
                     dleOkBtn.setVisibility(View.VISIBLE);
                     addBtn2.setVisibility(View.INVISIBLE);
                     deleBtn.setVisibility(View.INVISIBLE);
+                    detRobotFlag =true;
                 }
             }
         });
@@ -187,6 +196,7 @@ public class CenterControlActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
 
+                detRobotFlag =false;
                 dleOkBtn.setVisibility(View.INVISIBLE);
                 addBtn2.setVisibility(View.VISIBLE);
                 deleBtn.setVisibility(View.VISIBLE);
@@ -232,8 +242,6 @@ public class CenterControlActivity extends AppCompatActivity {
 
         if(workRobotList.size()>0) {
 
-
-
             for (int i = 0; i < workRobotList.size(); i++) {
                 Map<String, Object> map = new HashMap<String, Object>();
 
@@ -251,11 +259,11 @@ public class CenterControlActivity extends AppCompatActivity {
                 }
 
 
-                if(workRobotList.get(i).checkCount > ROBOT_OFFLINE_CNT  || (workRobotList.get(i).heatDataMsg.rtkState & 0x03) != 0x03) {
+                if(workRobotList.get(i).robotOnline == false  || (workRobotList.get(i).heatDataMsg.rtkState & 0x03) != 0x03) {
 
-                    map.put("mac_task", "-");
-                    map.put("mac_pesticides", "-");
-                    map.put("mac_power", "-");
+                    map.put("mac_task", "--");
+                    map.put("mac_pesticides", "--");
+                    map.put("mac_power", "--");
 
                     state +="离线";
 
@@ -291,19 +299,6 @@ public class CenterControlActivity extends AppCompatActivity {
 
         }
 
-   /*
-        for (int i = 1; i < 6; i++) {
-            Map<String, Object> map = new HashMap<String, Object>();
-
-            map.put("mac_number", "" + i);
-            map.put("mac_task", "" + i + "%");
-            map.put("mac_pesticides", "" + i + "%");
-            map.put("mac_power", "" + i + "%");
-            map.put("mac_state", "作业");
-
-            list.add(map);
-        }
-  */
         return list;
 
     }
@@ -315,6 +310,12 @@ public class CenterControlActivity extends AppCompatActivity {
            switch (msg.what){
                case EXIT_MSG:
                    isExit = false;
+                   break;
+               case HEART_MSG:
+                   if(detRobotFlag == false) {
+                       dataList = getData();
+                       listView.setAdapter(new ListviewAdapterOne(CenterControlActivity.this, dataList));
+                   }
                    break;
            }
 
@@ -362,6 +363,12 @@ public class CenterControlActivity extends AppCompatActivity {
             binder.getService().setRobotWorkingCallback(new BLEService.RobotWorkingCallback() {
                 @Override
                 public void RobotStateChanged(TankRobot tankRobot) {
+                    for(int i=0;i<workRobotList.size();i++){
+                        if(workRobotList.get(i).heatDataMsg.robotId == tankRobot.heatDataMsg.robotId){
+                            workRobotList.get(i).heatDataMsg = tankRobot.heatDataMsg;
+                            bleHandler.sendEmptyMessage(HEART_MSG);
+                        }
+                    }
 
                 }
 

@@ -225,7 +225,14 @@ public class OrchardListActivity extends AppCompatActivity {
         newMapBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startActivity(newMap);
+                if(workRobotList.size()>0) {
+                    Toast.makeText(OrchardListActivity.this, "工作模式下不能进行测绘" ,
+                            Toast.LENGTH_SHORT).show();
+
+                }else{
+                    startActivity(newMap);
+                }
+
             }
         });
         //开始作业按钮
@@ -301,15 +308,17 @@ public class OrchardListActivity extends AppCompatActivity {
             //获取当前在线的机器人
             workRobotList = binder.getRobotList();
 
-            String[] listRobot = new String[workRobotList.size()];
-            for (int i = 0; i < workRobotList.size(); i++) {
-                listRobot[i] = "果园机器人"+workRobotList.get(i).heatDataMsg.robotId;
+            if(workRobotList.size()>0) {
+                String[] listRobot = new String[workRobotList.size()];
+                for (int i = 0; i < workRobotList.size(); i++) {
+                    listRobot[i] = "果园机器人" + workRobotList.get(i).heatDataMsg.robotId;
 
+                }
+                MySpinnerAdapter adapter;
+                adapter = new MySpinnerAdapter(OrchardListActivity.this,
+                        android.R.layout.simple_spinner_item, listRobot);
+                spinner1.setAdapter(adapter);
             }
-            MySpinnerAdapter adapter;
-            adapter = new MySpinnerAdapter(OrchardListActivity.this,
-                    android.R.layout.simple_spinner_item, listRobot);
-            spinner1.setAdapter(adapter);
             //设置回调
             binder.getService().setRobotWorkingCallback(new BLEService.RobotWorkingCallback() {
                 @Override
