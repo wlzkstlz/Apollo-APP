@@ -26,6 +26,7 @@ import com.example.tank.plantprotectionrobot.BLE.BLEService;
 import com.example.tank.plantprotectionrobot.BLE.BluetoothLeClass;
 import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
 import com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool;
+import com.example.tank.plantprotectionrobot.Robot.HeatDataMsg;
 import com.example.tank.plantprotectionrobot.Robot.TankRobot;
 import com.example.tank.plantprotectionrobot.Robot.WorkMatch;
 import com.example.tank.plantprotectionrobot.appdata.ListviewAdapterOne;
@@ -352,7 +353,7 @@ public class CenterControlActivity extends AppCompatActivity {
 
 
             //绑定后执行动作
-            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT);
+            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,true);
             workRobotList = binder.getRobotList();//数据在后台一致运行，进入时获取当前添加的所有机器人
             Log.d(DEBUG_TAG,"添加的机器人数"+workRobotList.size());
             //添加显示数据
@@ -369,6 +370,11 @@ public class CenterControlActivity extends AppCompatActivity {
                             bleHandler.sendEmptyMessage(HEART_MSG);
                         }
                     }
+
+                }
+
+                @Override
+                public void ComdReturnChange(HeatDataMsg heatDataMsg) {
 
                 }
 

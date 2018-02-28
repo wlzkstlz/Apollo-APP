@@ -24,6 +24,7 @@ import com.example.tank.plantprotectionrobot.BLE.BLEService;
 import com.example.tank.plantprotectionrobot.ChoicePage.ConnectRTK;
 import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
 import com.example.tank.plantprotectionrobot.Robot.CommondType;
+import com.example.tank.plantprotectionrobot.Robot.HeatDataMsg;
 import com.example.tank.plantprotectionrobot.Robot.TankRobot;
 
 import java.util.ArrayList;
@@ -217,7 +218,7 @@ public class ConnectActivity extends AppCompatActivity {
             binder = (BLEService.BleBinder) service;
 
             //绑定后执行动作
-            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT);
+            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,false);
             binder.startScanBle();//搜索蓝牙
             workRobotList = binder.getRobotList();
 
@@ -241,6 +242,11 @@ public class ConnectActivity extends AppCompatActivity {
                         }
                     }
 
+
+                }
+
+                @Override
+                public void ComdReturnChange(HeatDataMsg heatDataMsg) {
 
                 }
 

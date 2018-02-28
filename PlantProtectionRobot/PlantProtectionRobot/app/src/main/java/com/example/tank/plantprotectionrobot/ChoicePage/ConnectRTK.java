@@ -322,7 +322,7 @@ public class ConnectRTK extends Fragment {
 
             //绑定后执行动作
 
-            binder.setBleWorkTpye(BLEService.BLE_MAP_CONECT);
+            binder.setBleWorkTpye(BLEService.BLE_MAP_CONECT,true);
             binder.startScanBle();//搜索蓝牙
 
             binder.getService().setMappingCallback(new BLEService.MappingCallback() {

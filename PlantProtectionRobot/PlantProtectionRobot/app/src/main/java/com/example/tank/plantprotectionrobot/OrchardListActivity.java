@@ -20,6 +20,7 @@ import android.widget.Toast;
 
 import com.example.tank.plantprotectionrobot.BLE.BLEService;
 import com.example.tank.plantprotectionrobot.ChoicePage.MySpinnerAdapter;
+import com.example.tank.plantprotectionrobot.Robot.HeatDataMsg;
 import com.example.tank.plantprotectionrobot.Robot.TankRobot;
 
 import com.example.tank.plantprotectionrobot.Robot.WorkMatch;
@@ -303,7 +304,7 @@ public class OrchardListActivity extends AppCompatActivity {
             binder = (BLEService.BleBinder) service;
 
             //绑定后执行动作
-            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT);
+            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,true);
 
             //获取当前在线的机器人
             workRobotList = binder.getRobotList();
@@ -311,7 +312,21 @@ public class OrchardListActivity extends AppCompatActivity {
             if(workRobotList.size()>0) {
                 String[] listRobot = new String[workRobotList.size()];
                 for (int i = 0; i < workRobotList.size(); i++) {
-                    listRobot[i] = "果园机器人" + workRobotList.get(i).heatDataMsg.robotId;
+
+                    String robotIdStr = "";
+                    if (workRobotList.get(i).heatDataMsg.robotId < 10) {
+                        robotIdStr = "机器人0000";
+                    } else if (workRobotList.get(i).heatDataMsg.robotId < 100) {
+                        robotIdStr = "机器人000";
+                    } else if (workRobotList.get(i).heatDataMsg.robotId < 1000) {
+                        robotIdStr = "机器人00";
+                    } else if (workRobotList.get(i).heatDataMsg.robotId < 10000) {
+                        robotIdStr = "机器人0";
+                    } else {
+                        robotIdStr = "机器人";
+                    }
+
+                    listRobot[i] = robotIdStr + workRobotList.get(i).heatDataMsg.robotId;
 
                 }
                 MySpinnerAdapter adapter;
@@ -338,6 +353,11 @@ public class OrchardListActivity extends AppCompatActivity {
 
                 @Override
                 public void BleConnectedDevice(BluetoothDevice connectedDevice) {
+
+                }
+
+                @Override
+                public void ComdReturnChange(HeatDataMsg heatDataMsg) {
 
                 }
             });

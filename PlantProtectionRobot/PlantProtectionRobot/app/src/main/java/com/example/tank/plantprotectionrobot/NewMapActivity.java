@@ -352,7 +352,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                 //解除绑定
                 timerTask.cancel();
                 if (binder != null) {
-                    binder.setBleWorkTpye(BLEService.SERV_BLE_NULL);
+                    binder.setBleWorkTpye(BLEService.SERV_BLE_NULL,true);
                     binder = null;
                     bleServiceConn = null;
                 }
@@ -996,7 +996,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
             //开启，设置Ble工作类型
             if(binder != null){
-                binder.setBleWorkTpye(BLEService.BLE_MAP_CONECT);
+                binder.setBleWorkTpye(BLEService.BLE_MAP_CONECT,true);
             }
 
             binder.getService().setMappingCallback(new BLEService.MappingCallback() {
@@ -1083,7 +1083,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         //解除绑定
         timerTask.cancel();
         if(binder !=null){
-            binder.setBleWorkTpye(BLEService.SERV_BLE_NULL);
+            binder.setBleWorkTpye(BLEService.SERV_BLE_NULL,true);
             binder=null;
             bleServiceConn = null;
         }

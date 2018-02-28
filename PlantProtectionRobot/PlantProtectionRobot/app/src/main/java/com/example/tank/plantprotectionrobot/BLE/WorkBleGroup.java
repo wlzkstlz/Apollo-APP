@@ -94,11 +94,14 @@ public class WorkBleGroup {
                 break;
             case   BLEService.BLE_ROBOT_CONECT:
                 check = "[R]\\d{5}";
+
                 break;
         }
 
+
         String bleName = device.getName().toString();
         if (bleName.matches(check)) {
+
             if (findBleList.size() > 0) {
                 boolean flag = false;
                 int len = findBleList.size();
@@ -113,11 +116,12 @@ public class WorkBleGroup {
             } else {
                 findBleList.add(device);
             //    Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
-
+                Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
             }
 
+
         }else{
-            Log.d(TAG,"WorKBleGroup->蓝牙搜索名字匹配失败");
+         //   Log.d(TAG,"WorKBleGroup->蓝牙搜索名字匹配失败");
         }
 
     }

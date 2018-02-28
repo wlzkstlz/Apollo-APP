@@ -34,7 +34,7 @@ public class RobotManagement{
     public static final int ROBOT_OFFLINE_CNT = 3;
 
     public BLEService.RobotWorkingCallback robotWorkingCallback=null;
-    public boolean startRouteData =false;
+
 
     /***
      *
@@ -61,7 +61,7 @@ public class RobotManagement{
             public void askInCenterRobot() {
             //    Log.d(TAG,"RobotManagement->askAutoRobot()");
 
-                if(startRouteData == false) {
+
 
                     if (workBleGroup != null && workRobotList.size() > 0) {
 
@@ -90,12 +90,11 @@ public class RobotManagement{
                     }
                 }
 
-            }
 
             @Override
             public void askInWorkMapRobot(){
 
-                if(startRouteData == false) {
+
                     if (workBleGroup != null && workRobotList.size() > 0) {
 
                         if (workBleGroup.mBLE != null && workBleGroup.isConnectGattCh != null) {
@@ -105,7 +104,6 @@ public class RobotManagement{
                             }
                         }
                     }
-                }
             }
         });
 
