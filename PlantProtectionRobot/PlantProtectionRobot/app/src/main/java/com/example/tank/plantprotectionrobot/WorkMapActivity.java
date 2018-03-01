@@ -39,6 +39,7 @@ import com.example.tank.plantprotectionrobot.Robot.CommondType;
 import com.example.tank.plantprotectionrobot.Robot.HeatDataMsg;
 import com.example.tank.plantprotectionrobot.Robot.TankRobot;
 import com.example.tank.plantprotectionrobot.Robot.WorkMatch;
+import com.example.tank.plantprotectionrobot.WaveFiltering.RobotCruisePath;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -80,14 +81,15 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     public ArrayList<TankRobot> workRobotList;
     //所有匹配组
   //  private ArrayList<WorkMatch> workMatchList;
+    //
+
 
     //路径文件组
     private ArrayList<ArrayList<GpsPoint>> routeList_M = new ArrayList<ArrayList<GpsPoint>>();//主干道
     private ArrayList<ArrayList<GpsPoint>> routeList_L = new ArrayList<ArrayList<GpsPoint>>();//果园
-    private ArrayList<ArrayList<MappingGroup>> routeListGpsList = new ArrayList<ArrayList<MappingGroup>>();//果园
+    private ArrayList<RobotCruisePath> robotCruisePaths = new ArrayList<RobotCruisePath>();//果园数据
 
     private  int matchRouteId =-1;//匹配果园路径序号
-    private ArrayList<String> routeNameList = new ArrayList<String>();
     private ArrayList<Integer> matchFlagList = new ArrayList<Integer>();
     private int isSelectRobotId; //当前控制的机器人ID
     private TankRobot isWorkRobot=null;//当前监控的机器人
@@ -120,11 +122,11 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private final int COMD_BLE_WAIT_OFF= 70;//WAIT指令发送超时
     private final int COMD_BLE_START_OFF= 71;//START_指令发送超时
     private final int COMD_BLE_END_OFF= 72;//END指令发送超时
-
     private final int SEND_ROUTE_DATA_FAIL =90;//连接上算法板蓝牙
     private final int SEND_ROUTE_SUCCESS = 100;//文件传输成功
-
     private final int DRAW_MAP =1;
+
+    private boolean robotBleConnectAgain=false;//机器人蓝牙掉线重连标志，在没有连接到串口时断开连接自动重连
 
     private final  String TAG = "Tank001";
 
@@ -141,15 +143,13 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
     //手势控制相关
     private PointF startPoint = new PointF(); //手指按下的坐标
-
     private boolean mapFirstInit=true;//第一次初始化，获取画布尺寸
     private boolean ctrSpinnerUpdate = true;//第一次进入，防止自己选择
     private boolean changeComd =false;
 
 
+    //音乐震动控制
     private VibrationAndMusic vibrationAndMusic;
-
-
 
     //高德地图
     //声明AMapLocationClient类对象
@@ -157,9 +157,6 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     //声明AMapLocationClientOption对象
     public AMapLocationClientOption mLocationOption = null;
     private boolean locatonFlag;  //权限获取标志1表示获取位置权限成功
-
-
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -221,12 +218,14 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             updateData(true);
                         }
                         translateChangeMsg();
-
                         break;
 
                     case SEND_ROUTE_DATA_FAIL:
+
                         progressDialog.cancel();
                         sendFailConnectHandle = true;
+                        robotBleConnectAgain = false;
+
                         msgDialog.setTitle("提示");
                         msgDialog.setMessage("文件传输失败");
                         msgDialog.show();
@@ -269,6 +268,8 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                         if(binder !=null) {
                             binder.setBleWorkTpye(BLEService.BLE_ROBOT_CONECT,false);
                             binder.startScanBle();
+                            robotBleConnectAgain = true;
+
                         }
                         break;
                     case COMD_BLE_END_OFF:
@@ -296,14 +297,17 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                     case  BLE_CONNECT_ON:
 
                         if(binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
+
+                            robotBleConnectAgain = false;
+
                             if (binder != null) {//连接算法板蓝牙
                                 if (binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
 
                                     //测试
                                     matchRouteId=0;
                                     //开始发送数据
-                                    if (matchRouteId >= 0 && matchRouteId < routeListGpsList.size()) {
-                                        binder.sendRouteData(routeListGpsList.get(matchRouteId));
+                                    if (matchRouteId >= 0 && matchRouteId < robotCruisePaths.size()) {
+                                        binder.sendRouteData(robotCruisePaths.get(matchRouteId));
                                     }
                                 }
                             }
@@ -343,6 +347,8 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
      */
     private void translateChangeMsg(){
         if(isSelectRobotId == isWorkRobot.heatDataMsg.robotId){
+
+
             //坐标转换
             robotPosition.x  = screenPoint.x / 2+ ((((double)isWorkRobot.heatDataMsg.poseLongitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(isWorkRobot.heatDataMsg.poseLatitude/MappingGroup.INM_LON_LAT_SCALE) - basicPosition.x * Math.cos(basicPosition.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
             //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
@@ -415,12 +421,10 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 }
                 robotMsgText.setText(state);
 
-                if(changeComd == false) {
-                    spinner1.setEnabled(true);//
-                    spinner1.setSelection(isWorkRobot.workAuto);
-                }
+                spinner1.setEnabled(true);//
+                spinner1.setSelection(isWorkRobot.workAuto);
 
-            //    ctrSpinnerUpdate =true;
+
             }
         }else{
             tankLevelText.setText("药量 --");
@@ -456,14 +460,16 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 spinner1.setVisibility(View.VISIBLE);
 
                 //准备传输路径文件，向所有机器发送等待指令
+                /*
                 satrtTransfeRoute = true;
                 for (int j = 0; j < workRobotList.size(); j++) {
                     binder.IntoWorkMapPage(false);//取消分时轮询多分配的时间
                     workRobotList.get(j).heatDataMsg.command = CommondType.CMD_WAIT;
 
                     if(workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId){
-                        if(matchRouteId>0 && matchRouteId<routeNameList.size()) {//匹配的果园路径名
-                            workRobotList.get(j).workMatch.routeName = routeNameList.get(matchRouteId);
+                        if(matchRouteId>0 && matchRouteId<robotCruisePaths.size()) {//匹配的果园路径名
+
+                            workRobotList.get(j).workMatch.routeName = robotCruisePaths.get(j).mFileName;
                         }
                     }
                 }
@@ -474,6 +480,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                     vibrationAndMusic.stopVibration();
                 }
                 progressDialog.show();
+                */
             }
         });
         //控制选择
@@ -487,7 +494,9 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             //自动驾驶
                             for (int j = 0; j < workRobotList.size(); j++) {
                                 if (workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId) {
+
                                     if(workRobotList.get(j).heatDataMsg.taskFile == true) {
+
                                         workRobotList.get(j).heatDataMsg.command = CommondType.CMD_AUTO;
                                         Log.d(TAG, "WorkMapActivity->进入=" + workRobotList.get(j).heatDataMsg.command);
                                         changeComd = true;
@@ -516,6 +525,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                     workRobotList.get(j).heatDataMsg.command = CommondType.CMD_MANUAL;
                                     Log.d(TAG,"WorkMapActivity->进入="+workRobotList.get(j).heatDataMsg.command);
                                     changeComd = true;
+                                    handler.sendEmptyMessageDelayed(COMD_CHOICE_DELAY, 1000);//等待一段时间后才刷新界面
                                     break;
                                 }
                             }
@@ -529,10 +539,22 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                     workRobotList.get(j).heatDataMsg.taskFile =false;//转场后消除路径文件标志
                                     workRobotList.get(j).workMatch.routeName = "";
                                     changeComd = true;
+                                    handler.sendEmptyMessageDelayed(COMD_CHOICE_DELAY, 1000);//等待一段时间后才刷新界面
                                     break;
                                 }
                             }
                             break;
+                        case 3:
+                            for (int j = 0; j < workRobotList.size(); j++) {
+                                if (workRobotList.get(j).heatDataMsg.robotId == isSelectRobotId) {
+                                    workRobotList.get(j).heatDataMsg.command = CommondType.CMD_SUPPLY;
+                                    changeComd = true;
+                                    handler.sendEmptyMessageDelayed(COMD_CHOICE_DELAY, 1000);//等待一段时间后才刷新界面
+                                    break;
+                                }
+                            }
+                            break;
+
                     }
 
                     //延时消息处理，若无回复就执行失败
@@ -761,6 +783,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                        if(isSelectRobotId == workRobotList.get(i).heatDataMsg.robotId){
                            String orchardName = workRobotList.get(i).workMatch.orchardName;
+
                            //文件路径
                            String filedir = "Tank" + File.separator + orchardName + File.separator + "mapping";
                            File[] files = getMappingList(filedir);
@@ -770,43 +793,27 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                //打开所有路径文件
                                for(int k=0;k<files.length;k++) {
 
-                                   GpsPoint bpoint = new GpsPoint();
-
-                                   ArrayList<MappingGroup> gpslist = new ArrayList<MappingGroup>();
-
-                                   getMappingHead(filedir + File.separator + files[k].getName(), len, bpoint);
-
-                                   getMappingData(filedir + File.separator + files[k].getName(), gpslist, len[0]);
-
+                                   RobotCruisePath robotCruisePath = new RobotCruisePath();
+                                   robotCruisePath.Open(files[k].getName(),filedir);
 
                                    //当前默认只有一个主干道
                                    //   Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
+
                                    ArrayList<GpsPoint> pointList = new ArrayList<GpsPoint>();
 
-                                   for (int j = 0; j < gpslist.size(); j++) {
+                                   for (int j = 0; j < robotCruisePath.mPoints.size(); j++) {
                                        GpsPoint point=new GpsPoint();
                                        //转化为画布坐标
-                                       point.x  = screenPoint.x / 2+ ((((double)gpslist.get(j).longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE) - bpoint.x * Math.cos(bpoint.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                                       //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                                       point.y = screenPoint.y / 2 + (bpoint.y - ((double)gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                                       point.x = screenPoint.x / 2 + robotCruisePath.mPoints.get(j).x * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                                       point.y = screenPoint.y / 2 - robotCruisePath.mPoints.get(j).y * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
 
                                        pointList.add(point);
-
-                                  //     if(j<20) {
-                                   //        Log.d(TAG, "测绘点:" + gpslist.get(j).longitude + " " + gpslist.get(j).latitude);
-                                  //     }
-
-                                       //     Log.d(TAG, "RTK状态：" + gpslist.get(j).rtkState + " 经度：" + gpslist.get(j).longitude + " 纬度：" + gpslist.get(j).latitude + " 海拔：" + gpslist.get(j).altitude + " roll：" + gpslist.get(j).roll
-                                       //             + " pitch：" + gpslist.get(j).pitch + " 方向：" + gpslist.get(j).yaw + " 周：" + gpslist.get(j).GPSTime_weeks + " 时间：" + gpslist.get(j).GPSTime_ms);
-
                                    }
 
-                                   if(files[k].getName().indexOf("L_") !=-1) {
+                                   if(files[k].getName().indexOf("L_") != -1) {
                                        routeList_L.add(pointList);//果园
+                                       robotCruisePaths.add(robotCruisePath);
 
-                                       routeNameList.add(files[k].getName());
-
-                                       routeListGpsList.add(gpslist);
                                        for(int p=0;p<workRobotList.size();p++){//标记匹配果园路径
                                            if(workRobotList.get(p).workMatch.equals(files[k].getName())){
                                                matchFlagList.add(1);//表示已匹配
@@ -899,7 +906,11 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                         case BLEService.BLE_CONNECT_OFF:
                             //掉线重连
                             if(binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
-                                handler.sendEmptyMessage(SEND_ROUTE_DATA_FAIL);
+                                if(robotBleConnectAgain == true){//还没连接到串口时掉线重连
+                                    binder.connectBle(null, true);
+                                }else {
+                                    handler.sendEmptyMessage(SEND_ROUTE_DATA_FAIL);
+                                }
                             }else{
                                 binder.connectBle(null, true);
                             }
@@ -949,6 +960,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             //  binder.unconnectBle();//断开控制蓝牙
                             handler.removeMessages(COMD_BLE_START_OFF);//正常，取消超时
                             binder.setBleWorkTpye(BLEService.BLE_ROBOT_CONECT,false);
+                            robotBleConnectAgain = true;
                             binder.startScanBle();
                             handler.sendEmptyMessageDelayed(SEND_ROUTE_DATA_FAIL,15000);
 

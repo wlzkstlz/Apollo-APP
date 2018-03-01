@@ -33,6 +33,7 @@ import com.amap.api.location.AMapLocationListener;
 import com.example.tank.plantprotectionrobot.BLE.BLEService;
 import com.example.tank.plantprotectionrobot.DataProcessing.GpsPoint;
 import com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup;
+import com.example.tank.plantprotectionrobot.WaveFiltering.RobotCruisePath;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -88,7 +89,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private ArrayList<GpsPoint>  mListPointL; //当前测绘显示数据
     private ArrayList<GpsPoint>  mListPointM; //主干道测绘显示数据
     //测绘数据，GPS原始数据
-    private ArrayList<MappingGroup> mappingList;
+    //private ArrayList<MappingGroup> mappingList = new ArrayList<MappingGroup>();
     private double mappingAdd=0.0;
 
     private int detFlag =0; //擦除点标志
@@ -109,7 +110,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private final int GPS_DIS = 111000;//纬度1度的距离，单位米
     //基站坐标
     private GpsPoint bPoint = new GpsPoint();
-
     private boolean firstInit = true;//第一次进程序
 
 
@@ -127,10 +127,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
     //刷新地图的定时器
     private Handler handler;
-
     //接收RTK数据
     private  Handler bleHandler;
-
     private TimerTask timerTask;
 
     //测绘擦除状态 false表示字测绘运行，true表示正在擦除
@@ -160,6 +158,16 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private final int DIALOG_START_MAPPING = 2;
     private int uconnectTime=0;//掉线检测，3秒没接收到数据认为掉线，定时器中计数，接收回调函数中清零
 
+    //路径滤波
+    private RobotCruisePath robotCruisePath = new RobotCruisePath();
+    private static  final float  DELTA_DIST = 0.25f; //过滤参数
+    private static  final float  PATH_POINT_PA = 0.25f; //
+    private static  final float  PATH_POINT_PB = 0.25f; //
+    private static  final float  PATH_POINT_PC = 0.25f; //
+    private static  final float  PATH_POINT_PD = 0.25f; //
+    private static  final float  PATH_POINT_PE = 0.25f; //
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -184,7 +192,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         setinfo = getSharedPreferences("TankSetInfo", Context.MODE_PRIVATE);
         infoEditor = setinfo.edit();
         //实例化测绘list
-        mappingList=new ArrayList<MappingGroup>();
 
         //初始化高德地图定位
         initMap();
@@ -207,7 +214,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
                         if(mListPointL.size()>0) {
                            list1.addAll(mListPointL.subList(0, detFlag + 1));
-                          list2.addAll(mListPointL.subList(detFlag, mListPointL.size()));
+                           list2.addAll(mListPointL.subList(detFlag, mListPointL.size()));
                         }
                         //   Log.d("Tank001","截断点："+flag);
                         if (detMapping == false) {
@@ -379,8 +386,15 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         @Override
                         public void run() {
 
+                            if(robotCruisePath.mPoints.size()>0){
+                                String UserFileUsing = setinfo.getString("UserFileUsing", null);
+                                String fileDir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
+                                //保存测绘类型
+                                String mappingType = setinfo.getString("MappingType", "L_");
+                                robotCruisePath.Save(mappingType,fileDir);
+                            }
+                            /*
                             if (mappingList.size() > 0) {
-
                                 //获取文件路径
                                 String UserFileUsing = setinfo.getString("UserFileUsing", null);
                                 String fileDir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
@@ -389,9 +403,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                 //   Log.d("debug001",fileDir +mappingType);
                                 Log.d(TAG, "测绘点数：" + mappingList.size());
                                 saveMappingDataAll(mappingList,bPoint,fileDir, mappingType);
-                                //     setMappingLength(fileDir,mappingType,1010);
-
                             }
+                            */
                             super.run();
                         }
                     }.start();
@@ -407,15 +420,13 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         if (Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < (NEAR_DIS * screenPoint.x / MAPMAX_DIS)
                                 && Math.abs(psonPoint.y - mListPointL.get(detFlag).y) < ( NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
                             ArrayList<GpsPoint> pl = new ArrayList<GpsPoint>();
-                            ArrayList<MappingGroup> ml = new ArrayList<MappingGroup>();
 
                             pl.addAll(mListPointL.subList(0, detFlag + 1));
-                            ml.addAll(mappingList.subList(0, detFlag + 1));
-
                             mListPointL = pl;
-                            mappingList = ml;
 
-                            Log.d("Tank001", mappingList.size() + " " + detFlag);
+                            robotCruisePath.DeletePoints(detFlag+1);
+
+                            Log.d("Tank001", robotCruisePath.mPoints.size() + " " + detFlag);
                             saveBtn.setText("保存");
                             detMapping = false;
                             eraseBtn.setVisibility(View.VISIBLE);
@@ -811,18 +822,24 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position));
                         GpsPoint gpsPoint = new GpsPoint();
 
-                        gpsPoint.x = screenPoint.x / 2+ ((((double)rtkMap.longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                        //--------------------------显示到屏幕上的点----------------------------//
+                        gpsPoint.x = screenPoint.x / 2+ ((((double)rtkMap.longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
                         //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                        gpsPoint.y = screenPoint.y / 2 + (bPoint.y - ((double)rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * ((double) screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                        gpsPoint.y = screenPoint.y / 2 + (bPoint.y - ((double)rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
                         gpsPoint.d = rtkMap.yaw;
+
+                        //-----------------------相对于基站的距离单位m-----------------------------------//
+                        PointF gpsPointF = new PointF();//相对于基站的距离
+                        gpsPointF .x = (float) (((( (double)rtkMap.longitude / MappingGroup.INM_LON_LAT_SCALE ) * 180/MappingGroup.PI )* Math.cos(rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180))*GPS_DIS);
+                        gpsPointF .y = (float) ((((double)rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI - bPoint.y)*GPS_DIS);
 
                         psonPoint.x = gpsPoint.x;
                         psonPoint.y = gpsPoint.y;
                         psonPoint.d = gpsPoint.d;
-                        //         Log.d(TAG,"X坐标："+psonPoint.x+" Y坐标"+psonPoint.y)
+                        //Log.d(TAG,"X坐标："+psonPoint.x+" Y坐标"+psonPoint.y)
                         if (false == detMapping && screenPoint.x != 0) {//正常测绘模式下
 
-                            if(getLocationFlag == false && mappingList.size()>0){//定位失败，第一次进入定位成功
+                            if(getLocationFlag == false && robotCruisePath.mPoints.size()>0){//定位失败，第一次进入定位成功
                                 if (Math.abs(psonPoint.x - mListPointL.get(mListPointL.size()-1).x) < ( NEAR_DIS * screenPoint.x / MAPMAX_DIS)
                                         && Math.abs(psonPoint.y - mListPointL.get(mListPointL.size()-1).y) < (NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
                                     //手机振动
@@ -833,11 +850,14 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                 }
                             }else { //正常测绘
 
-                                //定位数据处理
-                                mappingList.add(rtkMap);
-                                mListPointL.add(gpsPoint);
-                                detFlag = mListPointL.size() - 1;
+                                //添加点
+                                if (robotCruisePath.AddPoint(gpsPointF, DELTA_DIST)) {//添加成功
 
+                                    //定位数据处理
+                                    //mappingList.add(rtkMap);
+                                    mListPointL.add(gpsPoint);
+                                    detFlag = mListPointL.size() - 1;
+                                }
 
                                 //提示信息处理
                                 if(vibrationAndMusic.getVibrate()) {

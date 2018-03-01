@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.PointF;
 import android.location.LocationManager;
 import android.media.MediaPlayer;
 import android.nfc.Tag;
@@ -28,6 +29,7 @@ import com.example.tank.plantprotectionrobot.Robot.PollingManagement;
 import com.example.tank.plantprotectionrobot.Robot.RobotManagement;
 import com.example.tank.plantprotectionrobot.Robot.TankRobot;
 import com.example.tank.plantprotectionrobot.Robot.WorkMatch;
+import com.example.tank.plantprotectionrobot.WaveFiltering.RobotCruisePath;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +38,8 @@ import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileToo
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getFloat;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getInt;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getShort;
+import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.putDouble;
+import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.putFloat;
 
 /**
  * Created by TK on 2018/1/22.
@@ -140,12 +144,11 @@ public class BLEService extends Service {
         /***
          * 开始传输路径文件
          */
-        public void sendRouteData(final ArrayList<MappingGroup> route){
+        public void sendRouteData(final RobotCruisePath robotCruisePath){
 
             new Thread(){
                 @Override
                 public void run() {
-
                     /*
                     for(int i=0;i<route.size();i++){
                          if(workBleGroup.isConnectGattCh == null){
@@ -157,7 +160,27 @@ public class BLEService extends Service {
                         data[i] = 0x55;
                     }
 
-                    workBleGroup.sendCommand(data);
+                    byte[]bbuf =new byte[16];
+                    int index=0;
+                    putDouble(bbuf,robotCruisePath.bPoint.x,index);
+                    index+=8;
+                    putDouble(bbuf,robotCruisePath.bPoint.y,index);
+
+                    workBleGroup.sendCommand(bbuf);//基站
+
+                    for(int i=0;i<robotCruisePath.mPathPoints.size();i++){//PathPoint数据为20字节，一个蓝牙数据包
+
+                        byte[] pbuf = robotCruisePath.PathPoitToArray(robotCruisePath.mPathPoints.get(i));
+                        workBleGroup.sendCommand(pbuf);
+
+                        try {
+                            sleep(1); //延时
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+
                     if(robotWorkingCallback !=null){//文件传输完
                         robotWorkingCallback.BleStateChanged(BLE_SEND_ROUTE_END);
                     }
@@ -593,14 +616,15 @@ public RobotWorkingCallback getRobotWorkingCallback(){
             msgWhat = BLE_CONNECT_OFF ;
         //    mBLE.close();
        //     mCharacteristic = null;
-            if(workBleGroup.isConnectGattCh !=null){
-                if (mappingCallback != null) {
-                    mappingCallback.BleStateChanged(msgWhat);
-                }
-                if(robotWorkingCallback != null){
-                    robotWorkingCallback.BleStateChanged(msgWhat);
-                }
+
+            if (mappingCallback != null) {
+                mappingCallback.BleStateChanged(msgWhat);
             }
+
+            if(robotWorkingCallback != null) {
+                robotWorkingCallback.BleStateChanged(msgWhat);
+            }
+
             workBleGroup.isConnectGattCh = null;
       //      isConnectedBle=null;
 

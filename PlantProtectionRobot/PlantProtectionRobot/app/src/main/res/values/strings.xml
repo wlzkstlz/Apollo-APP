@@ -45,6 +45,8 @@
         <item>"自动作业"</item>
         <item>"手动作业"</item>
         <item>"手动转场"</item>
+        <item>"补给"</item>
+
     </string-array>
 
 </resources>
