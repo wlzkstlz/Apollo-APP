@@ -54,7 +54,7 @@ public class ConnectRTK extends Fragment {
 
     private EditText editText1;//经度输入值
     private EditText editText2;//纬度输入值
-    private GpsPoint bPoint = new GpsPoint();   //基站坐标
+    private GpsPoint bPoint = new GpsPoint();   //基站坐标，弧度制
 
     //设置数据，此处保存当前打开的农场主名，即是农场主文件中名
     private SharedPreferences setinfo;
@@ -201,12 +201,14 @@ public class ConnectRTK extends Fragment {
                if(ble_connectFlag == true) {
                     //保存测绘类型
                     if (editText1.getText().toString().equals("")) {
-                        bPoint.x = 113.894753;
+                   //     bPoint.x = 113.894753;
+                          bPoint.x = 0;
                     } else {
                         bPoint.x = Double.parseDouble(editText1.getText().toString());
                     }
                     if (editText1.getText().toString().equals("")) {
-                        bPoint.y = 22.958744;
+                    //    bPoint.y = 22.958744;
+                        bPoint.y = 0;
 
                     } else {
                         bPoint.y = Double.parseDouble(editText2.getText().toString());
@@ -214,8 +216,8 @@ public class ConnectRTK extends Fragment {
                     //      Log.d("Tank001","经度"+bPoint.x+"纬度"+bPoint.y);
 
                     infoEditor.putString("MappingType", MappingType);
-                    infoEditor.putLong("basicRTK.X", (long) (bPoint.x * 10000000000l));
-                    infoEditor.putLong("basicRTK.Y", (long) (bPoint.y * 10000000000l));
+                    infoEditor.putLong("basicRTK.X", (long) ((bPoint.x*MappingGroup.PI/180) * 10000000000l));
+                    infoEditor.putLong("basicRTK.Y", (long) ((bPoint.y*MappingGroup.PI/180) * 10000000000l));
                     infoEditor.commit();
 
                     startActivity(intentMap);
@@ -393,6 +395,10 @@ public class ConnectRTK extends Fragment {
                 android.R.layout.simple_spinner_item, listMapingType);
         spinner2.setAdapter(adapter);
 
+        bPoint.set((double) setinfo.getLong("basicRTK.X", 0)/10000000000l,(double) setinfo.getLong("basicRTK.Y", 0)/10000000000l,0,0);
+
+        editText1.setText(""+bPoint.x);
+        editText2.setText(""+bPoint.y);
     }
 
 }

@@ -230,14 +230,14 @@ public class BluetoothLeClass {
             return;
         }
         mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
-    //    mBluetoothGatt.writeDescriptor(descriptor)不需要也能接收，设置这个有什么作用?
-    //    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(characteristic.getUuid());
 
-      //  if (descriptor != null) {
-      //      descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE );
-      //      mBluetoothGatt.writeDescriptor(descriptor);
+       BluetoothGattDescriptor descriptor = characteristic.getDescriptor(characteristic.getUuid());
 
-      //  }
+        if (descriptor != null) {
+            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE );
+            mBluetoothGatt.writeDescriptor(descriptor);
+
+        }
     }
 
     public void writeCharacteristic(BluetoothGattCharacteristic characteristic){

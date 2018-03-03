@@ -109,7 +109,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private final int MAPMAX_DIS = 5000;//地图最大距离单位米
     private final int GPS_DIS = 111000;//纬度1度的距离，单位米
     //基站坐标
-    private GpsPoint bPoint = new GpsPoint();
+    private GpsPoint bPoint = new GpsPoint();//弧度制
     private boolean firstInit = true;//第一次进程序
 
 
@@ -161,12 +161,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     //路径滤波
     private RobotCruisePath robotCruisePath = new RobotCruisePath();
     private static  final float  DELTA_DIST = 0.25f; //过滤参数
-    private static  final float  PATH_POINT_PA = 0.25f; //
-    private static  final float  PATH_POINT_PB = 0.25f; //
-    private static  final float  PATH_POINT_PC = 0.25f; //
-    private static  final float  PATH_POINT_PD = 0.25f; //
-    private static  final float  PATH_POINT_PE = 0.25f; //
-
 
 
     @Override
@@ -391,6 +385,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                 String fileDir = "Tank" + File.separator + UserFileUsing + File.separator + "mapping";
                                 //保存测绘类型
                                 String mappingType = setinfo.getString("MappingType", "L_");
+                                robotCruisePath.bPoint = bPoint;
                                 robotCruisePath.Save(mappingType,fileDir);
                             }
                             /*
@@ -550,36 +545,32 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                    int[] len=new int[2];
 
                    if(files != null ) {
-                       GpsPoint bpoint=new GpsPoint();
+                       //打开所有路径文件
+                       for(int k=0;k<files.length;k++) {
 
-                       ArrayList<MappingGroup> gpslist = new ArrayList<MappingGroup>();
-                       getMappingHead(filedir+File.separator+files[0].getName(),len,bpoint);
+                           if(files[k].getName().indexOf("M_1") != -1) { //当前默认只有一个主干道
 
-                       getMappingData(filedir+File.separator+files[0].getName(),gpslist,len[0]);
+                               RobotCruisePath robotCruisePath = new RobotCruisePath();
+                               robotCruisePath.Open(files[k].getName(), filedir);
 
-                       //当前默认只有一个主干道
-                       Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
+                               //当前默认只有一个主干道
+                               //   Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
 
-                       for(int j=0;j<gpslist.size();j++){
-                           GpsPoint point=new GpsPoint();
-                           //转化为画布坐标
-                           //   point.x = screenPoint.x/2+(gpslist.get(j).longitude*Math.cos(gpslist.get(j).latitude * Math.PI / 180) - bPoint.x*Math.cos(bPoint.y * Math.PI / 180)) * ((double) screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                           //   point.y = screenPoint.y/2+(bPoint.y -gpslist.get(j).latitude) * ((double) screenPoint.y * GPS_DIS  / MAPMAX_DIS);
+                               for (int j = 0; j < robotCruisePath.mPoints.size(); j++) {
+                                   GpsPoint point = new GpsPoint();
+                                   //转化为画布坐标
+                                   point.x = screenPoint.x / 2 + robotCruisePath.mPoints.get(j).x * (screenPoint.x / MAPMAX_DIS);
+                                   point.y = screenPoint.y / 2 - robotCruisePath.mPoints.get(j).y * (screenPoint.y / MAPMAX_DIS);
 
-                           point.x  = screenPoint.x / 2+ ((((double)gpslist.get(j).longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                           //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                           point.y= screenPoint.y / 2 + (bPoint.y - ((double)gpslist.get(j).latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * ( screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                                   mListPointM.add(point);
+                               }
+                           }
 
-
-                           mListPointM.add(point);
-                           //      Log.d(TAG, "测绘点:"+point.x +" "+point.y+" "+point.z);
-
-                           Log.d(TAG, "RTK状态：" +gpslist.get(j).rtkState +  " 经度：" + gpslist.get(j).longitude + " 纬度：" +gpslist.get(j).latitude + " 海拔：" + gpslist.get(j).altitude + " roll：" + gpslist.get(j).roll
-                                   + " pitch：" + gpslist.get(j).pitch + " 方向：" + gpslist.get(j).yaw+ " 周：" + gpslist.get(j).GPSTime_weeks+ " 时间：" + gpslist.get(j).GPSTime_ms);
-
+                           Log.d(TAG,"WorkMapActivity路径文件名："+files[k].getName());
                        }
 
                    }
+
                }
                super.run();
            }
@@ -822,20 +813,18 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position));
                         GpsPoint gpsPoint = new GpsPoint();
 
-                        //--------------------------显示到屏幕上的点----------------------------//
-                        gpsPoint.x = screenPoint.x / 2+ ((((double)rtkMap.longitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                        //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                        gpsPoint.y = screenPoint.y / 2 + (bPoint.y - ((double)rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
-                        gpsPoint.d = rtkMap.yaw;
-
                         //-----------------------相对于基站的距离单位m-----------------------------------//
                         PointF gpsPointF = new PointF();//相对于基站的距离
-                        gpsPointF .x = (float) (((( (double)rtkMap.longitude / MappingGroup.INM_LON_LAT_SCALE ) * 180/MappingGroup.PI )* Math.cos(rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE) - bPoint.x * Math.cos(bPoint.y * Math.PI / 180))*GPS_DIS);
-                        gpsPointF .y = (float) ((((double)rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI - bPoint.y)*GPS_DIS);
 
-                        psonPoint.x = gpsPoint.x;
-                        psonPoint.y = gpsPoint.y;
-                        psonPoint.d = gpsPoint.d;
+                        gpsPointF .x = (float) (((((double)rtkMap.longitude / MappingGroup.INM_LON_LAT_SCALE ) * 180/MappingGroup.PI )* Math.cos(rtkMap.latitude/MappingGroup.INM_LON_LAT_SCALE) - (bPoint.x*180/MappingGroup.PI) * Math.cos(bPoint.y))*GPS_DIS);
+                        gpsPointF .y = (float) ((((double)rtkMap.latitude / MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI - (bPoint.y*180/MappingGroup.PI))*GPS_DIS);
+
+                        //--------------------------显示到屏幕上的点----------------------------//
+                        gpsPoint.x = screenPoint.x / 2+  gpsPointF .x*(screenPoint.x/ MAPMAX_DIS);
+                        //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
+                        gpsPoint.y = screenPoint.y / 2 - gpsPointF .y* (screenPoint.y/ MAPMAX_DIS);
+                        gpsPoint.d = rtkMap.yaw;
+
                         //Log.d(TAG,"X坐标："+psonPoint.x+" Y坐标"+psonPoint.y)
                         if (false == detMapping && screenPoint.x != 0) {//正常测绘模式下
 
@@ -855,8 +844,13 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
                                     //定位数据处理
                                     //mappingList.add(rtkMap);
+
+                                    psonPoint.x = -10000;
+                                    psonPoint.y = -10000;
+
                                     mListPointL.add(gpsPoint);
                                     detFlag = mListPointL.size() - 1;
+
                                 }
 
                                 //提示信息处理
@@ -870,6 +864,11 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                 }
                             }
                         } else {//擦除模式下
+
+                            psonPoint.x = gpsPoint.x;
+                            psonPoint.y = gpsPoint.y;
+                            psonPoint.d = gpsPoint.d;
+
                             //与删除点重合
                             if (Math.abs(psonPoint.x - mListPointL.get(detFlag).x) < ( NEAR_DIS * screenPoint.x / MAPMAX_DIS)
                                     && Math.abs(psonPoint.y - mListPointL.get(detFlag).y) < (NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
@@ -900,10 +899,9 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                     }else{
 
                         //定位失败，不显示人的位置
-                        psonPoint.x = -100;
-                        psonPoint.y = -100;
+                        psonPoint.x = -10000;
+                        psonPoint.y = -10000;
                         psonPoint.d = 0;
-
 
                         //定位失败
                         moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position_1));

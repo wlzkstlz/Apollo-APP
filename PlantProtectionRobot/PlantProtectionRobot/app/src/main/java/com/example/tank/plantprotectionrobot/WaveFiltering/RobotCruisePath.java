@@ -52,6 +52,13 @@ public class RobotCruisePath {
     public static final int POINT_LEN = 8; //测绘信息PathPoint数据byte长度
     public static final int RTK_BAC_LEN = 16; //基站数据长度
     public static final int PATH_POINT_LEN = 20;//PathPoint类数据长度
+    public static final float POINT_PA =0.3f;//转换参数
+    public static final float POINT_PB =2.0f;
+    public static final float POINT_PC =0.1f;
+    public static final float POINT_PD =(float) (5.0*MappingGroup.PI);
+    public static final float POINT_PE =(float) (5.0*MappingGroup.PI);
+
+
 
     //TODO end ------------------------------------//
 
@@ -133,10 +140,13 @@ public class RobotCruisePath {
      */
     public void createPathPoints(float pa , float pb, float pc,float pd,float pe ){
         mPathPoints.clear();
-        ArrayList<PointF> points_buf=new ArrayList<>(mPoints.size());
+   //     ArrayList<PointF> points_buf=new ArrayList<>(mPoints.size());
+        ArrayList<PointF> points_buf=new ArrayList<PointF>();
+        points_buf.addAll(mPoints.subList(0,mPoints.size()));
+        /*
         for (int i=0;i<mPoints.size();i++){
             points_buf.set(i,new PointF(mPoints.get(i).x,mPoints.get(i).y));
-        }
+        }*/
 
         for (int i=2;i<points_buf.size();i++){
             PathPoint pathPt=new PathPoint();
@@ -336,15 +346,9 @@ public class RobotCruisePath {
         mFileName=fname;
         mFileDir=fdir;
         //TODO 从SD卡读取路径文件数据
-        readPathPointFromSD();
-
-        /*
-        for(int i=0;i<20;i++){
-            PointF pointF = new PointF();
-            pointF.set(i*0.1f+10.1f,i);
-            mPoints.add(pointF);
-        }
-        */
+       if(readPathPointFromSD()){
+           createPathPoints(POINT_PA, POINT_PB, POINT_PC,POINT_PD,POINT_PE );
+       }
 
     }
     public void Save(){
@@ -365,7 +369,7 @@ public class RobotCruisePath {
         int off=0;
         byte[] wdata = new byte[ 4+RTK_BAC_LEN +mPoints.size()*POINT_LEN];
         //填入帧长数据
-        putInt(wdata,mPathPoints.size(),off);
+        putInt(wdata,mPoints.size(),off);
         //填入基站数据
         off = off+4;
         putDouble(wdata,bPoint.x,off);
@@ -380,6 +384,8 @@ public class RobotCruisePath {
             off = off+4;
             putFloat(wdata, mPoints.get(i).y,off);
             off = off+4;
+
+       //     Log.d("Tank001","点数"+mPoints.size()+"基站"+bPoint.x+" "+bPoint.y+"经度："+mPoints.get(i).x+" 纬度:"+mPoints.get(i).y);
         }
         //写入文件，不追加，会创建新文件
         writeFileToSDCard(wdata, wrieFile, mType, false, false);
@@ -422,6 +428,8 @@ public class RobotCruisePath {
                             pointF.y = getFloat(bufp,indx);
                             indx +=4;
                             mPoints.add(pointF);
+
+                      //      Log.d("Tank001","点数"+len+"基站"+bPoint.x+" "+bPoint.y+"经度："+mPoints.get(i).x+" 纬度:"+mPoints.get(i).y);
                         }
                     }else {
                         return false;

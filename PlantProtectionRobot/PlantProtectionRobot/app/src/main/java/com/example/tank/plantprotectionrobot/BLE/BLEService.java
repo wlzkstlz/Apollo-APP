@@ -155,10 +155,6 @@ public class BLEService extends Service {
                         workBleGroup.sendCommand();
                         }
                     }*/
-                    byte[] data = new byte[19];
-                    for(int i=0;i<19;i++){
-                        data[i] = 0x55;
-                    }
 
                     byte[]bbuf =new byte[16];
                     int index=0;
@@ -168,19 +164,33 @@ public class BLEService extends Service {
 
                     workBleGroup.sendCommand(bbuf);//基站
 
+
+                    try {
+                        sleep(50); //延时
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+                    Log.d(TAG,"长度="+robotCruisePath.mPathPoints.size()+"\n");
                     for(int i=0;i<robotCruisePath.mPathPoints.size();i++){//PathPoint数据为20字节，一个蓝牙数据包
 
                         byte[] pbuf = robotCruisePath.PathPoitToArray(robotCruisePath.mPathPoints.get(i));
+                     //   Log.d(TAG,"BLEService->传输路径文件长度："+pbuf.length);
+               //         Log.d(TAG,Utils.bytesToHexString(pbuf)+"\n");
                         workBleGroup.sendCommand(pbuf);
 
                         try {
-                            sleep(1); //延时
+                            sleep(50); //延时
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
                     }
 
-
+                    try {
+                        sleep(60); //延时
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     if(robotWorkingCallback !=null){//文件传输完
                         robotWorkingCallback.BleStateChanged(BLE_SEND_ROUTE_END);
                     }
@@ -372,10 +382,12 @@ public class BLEService extends Service {
         super.onCreate();
 
         Log.d(TAG,"--onCreate()--");
+
         serviceRunning = true;
         new Thread() {
             @Override
             public void run() {
+                double a=0;
                 while (serviceRunning) {
                     if (mappingCallback != null || robotWorkingCallback != null) {
 
@@ -400,8 +412,27 @@ public class BLEService extends Service {
                         }
 
                     }
+
+
+                    a +=0.00001;
+                    MappingGroup rtkMap = new MappingGroup();
+           //         rtkMap.longitude = (int)(((113.894753+a)*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
+            //        rtkMap.latitude = (int)(((22.958744+a)*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
+                    rtkMap.longitude = (int)((a*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
+                    rtkMap.latitude = (int)((a*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
+                    rtkMap.altitude = 50;
+                    rtkMap.roll = 20;
+                    rtkMap.pitch=20;
+                    rtkMap.yaw = (float) (a*10000000);
+                    rtkMap.GPSTime_ms = 20;
+                    rtkMap.GPSTime_weeks=20;
+                    rtkMap.rtkState =1;
+                    if(mappingCallback !=null) {
+                        mappingCallback.BleDataChanged(rtkMap);
+                    }
+
                     try {
-                        sleep(10); //延时
+                        sleep(100); //延时
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }

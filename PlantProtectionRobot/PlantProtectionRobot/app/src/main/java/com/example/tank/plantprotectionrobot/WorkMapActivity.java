@@ -70,7 +70,6 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private Button mapZoomUp;
     private Button mapZoomDown;
 
-
     private Intent centerCtr;
     private Spinner spinner1;
 
@@ -146,7 +145,6 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private boolean mapFirstInit=true;//第一次初始化，获取画布尺寸
     private boolean ctrSpinnerUpdate = true;//第一次进入，防止自己选择
     private boolean changeComd =false;
-
 
     //音乐震动控制
     private VibrationAndMusic vibrationAndMusic;
@@ -441,6 +439,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
         workMapView.setRobotAndPersonPosition(robotPosition,personPosition);
         workMapView.drawMatchRoute(routeList_L,matchFlagList);
+      //  Log.d(TAG,"画地图\n");
     }
     private void setOnClick() {
         centerBtn.setOnClickListener(new View.OnClickListener() {
@@ -460,7 +459,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 spinner1.setVisibility(View.VISIBLE);
 
                 //准备传输路径文件，向所有机器发送等待指令
-                /*
+
                 satrtTransfeRoute = true;
                 for (int j = 0; j < workRobotList.size(); j++) {
                     binder.IntoWorkMapPage(false);//取消分时轮询多分配的时间
@@ -480,7 +479,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                     vibrationAndMusic.stopVibration();
                 }
                 progressDialog.show();
-                */
+
             }
         });
         //控制选择
@@ -804,10 +803,11 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                    for (int j = 0; j < robotCruisePath.mPoints.size(); j++) {
                                        GpsPoint point=new GpsPoint();
                                        //转化为画布坐标
-                                       point.x = screenPoint.x / 2 + robotCruisePath.mPoints.get(j).x * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                                       point.y = screenPoint.y / 2 - robotCruisePath.mPoints.get(j).y * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                                       point.x = screenPoint.x / 2 + robotCruisePath.mPoints.get(j).x * (screenPoint.x/ MAPMAX_DIS);
+                                       point.y = screenPoint.y / 2 - robotCruisePath.mPoints.get(j).y * (screenPoint.y/ MAPMAX_DIS);
 
                                        pointList.add(point);
+                                 //      Log.d(TAG,"测绘数据：X="+robotCruisePath.mPoints.get(j).x +"Y="+robotCruisePath.mPoints.get(j).y+"\n");
                                    }
 
                                    if(files[k].getName().indexOf("L_") != -1) {
@@ -827,8 +827,9 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                                    }else{
                                        routeList_M.add(pointList);//主干道
+                                       Log.d(TAG,"WorkMapActivity路径文件名："+files[k].getName());
                                    }
-                                   Log.d(TAG,"WorkMapActivity路径文件名："+files[k].getName());
+
                                }
 
                            }
@@ -934,7 +935,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 public void ComdReturnChange(HeatDataMsg heatDataMsg) {
 
                     //准备开始传路径文件
-                    if(satrtTransfeRoute == true) {
+                //    if(satrtTransfeRoute == true) {
 
                         if(heatDataMsg.command == CommondType.CMD_WAIT) {
                             int flag = 0;
@@ -967,13 +968,14 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                         }else if(heatDataMsg.command == CommondType.CMD_BLE_END){
 
                             handler.removeMessages(COMD_BLE_END_OFF);//正常，取消超时
+
                              if(heatDataMsg.taskFile == true){
                                  handler.sendEmptyMessage(SEND_ROUTE_SUCCESS);
                              }else{
                                  handler.sendEmptyMessage(SEND_ROUTE_DATA_FAIL);
                             }
                         }
-                    }
+                  //  }
                 }
 
                 @Override

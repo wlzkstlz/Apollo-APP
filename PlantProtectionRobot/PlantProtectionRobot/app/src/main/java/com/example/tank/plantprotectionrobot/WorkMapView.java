@@ -9,6 +9,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 
 import com.example.tank.plantprotectionrobot.DataProcessing.GpsPoint;
@@ -69,16 +70,24 @@ public class WorkMapView extends View {
         super.onDraw(canvas);
 
         canvas.translate((int)movePoint.x,(int)movePoint.y);
+     //   Log.d("Tank001","偏移X="+movePoint.x+"Y="+movePoint.y+"\n");
+
+    //    Path path0 = new Path();
+     //   path0.addCircle(200,200,50,Path.Direction.CW);
+     //   canvas.drawPath(path0, greenPaint);
+
 
         if(routeList !=null && matchFlagList !=null){
 
             for(int i=0;i<routeList.size();i++){
 
                 Path path = new Path();
+
                 if(0 == matchFlagList.get(i)) {
 
                     for (int index = 0; index < routeList.get(i).size(); index++) {
 
+                        Log.d("Tank001","未匹配坐标：X="+routeList.get(i).get(index).x+" Y="+routeList.get(i).get(index).y+"\n");
                         if (index == 0) {
                             path.moveTo((int) (mapRatio * routeList.get(i).get(index).x), (int) (mapRatio * routeList.get(i).get(index).y));
                         } else if (index == routeList.get(i).size() - 1) {
@@ -88,12 +97,15 @@ public class WorkMapView extends View {
                         }
 
                     }
+
                     path.close();
                     canvas.drawPath(path, greenPaint);
+
                 }else{
 
                     for (int index = 0; index < routeList.get(i).size(); index++) {
 
+                     //   Log.d("Tank001","匹配坐标：X="+routeList.get(i).get(index).x+" Y="+routeList.get(i).get(index).y+"\n");
                         if (index == 0) {
                             path.moveTo((int) (mapRatio * routeList.get(i).get(index).x), (int) (mapRatio * routeList.get(i).get(index).y));
                         } else if (index == routeList.get(i).size() - 1) {
@@ -181,7 +193,10 @@ public class WorkMapView extends View {
      */
     public void drawMatchRoute(ArrayList<ArrayList<GpsPoint>> routeList,ArrayList<Integer> isMatch){
         this.routeList=routeList;
+
+        this.matchFlagList =isMatch;
         ctrRobotRouteGray=null;
+        invalidate();
 
     }
 
@@ -193,6 +208,7 @@ public class WorkMapView extends View {
         this.ctrRobotRouteGray = ctrRobotRouteGray;
         routeList =null;
         matchFlagList =null;
+        invalidate();
     }
 
     /***
@@ -203,6 +219,7 @@ public class WorkMapView extends View {
     public void setRobotAndPersonPosition(GpsPoint robotPosition,GpsPoint personPosition){
         this.robotPosition=robotPosition;
         this.personPosition =personPosition;
+        invalidate();
     }
 
 }

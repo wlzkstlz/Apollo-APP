@@ -43,7 +43,6 @@ public class MappingGroup {
         public static final double PI = 3.14159265358;//经纬度转换成定点小数的比例系数
 
 
-
     /***
      *
      * @param rtkState RTK状态
