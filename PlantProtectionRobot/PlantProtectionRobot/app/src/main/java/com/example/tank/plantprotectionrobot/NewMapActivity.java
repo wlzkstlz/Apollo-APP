@@ -374,6 +374,11 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
             @Override
             public void onClick(View view) {
 
+                if (binder != null) {
+                    //断开蓝牙连接
+                    binder.unconnectBle();
+                }
+
                 if(false == detMapping) {
 
                     new Thread(){
@@ -404,11 +409,13 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         }
                     }.start();
 
-                    finish();
+
                     //停止播放音乐
                     if(vibrationAndMusic.getMusicState()) {
                         vibrationAndMusic.playmusic(false);
                     }
+
+                    finish();
 
                 }else{
                     if(mListPointL.size()>1) {
@@ -504,9 +511,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         screenPoint.x = 0;
         screenPoint.y = 0;
 
-        bPoint.set((double) setinfo.getLong("basicRTK.X", 0)/10000000000l,(double) setinfo.getLong("basicRTK.Y", 0)/10000000000l,0,0);
+        //bPoint.set((double) setinfo.getLong("basicRTK.X", 0)/10000000000l,(double) setinfo.getLong("basicRTK.Y", 0)/10000000000l,0,0);
+        bPoint.set(((double) setinfo.getLong("basicRTK.X", 0)/10000000000l)*MappingGroup.PI/180,((double) setinfo.getLong("basicRTK.Y", 0)/10000000000l)*MappingGroup.PI/180,0,0);
 
-   //     Log.d(TAG,"经度："+bPoint.x+" 纬度：\n"+bPoint.y);
+        //     Log.d(TAG,"经度："+bPoint.x+" 纬度：\n"+bPoint.y);
 
         //touchPoint = mListPoint1.get(mListPoint1.size()-1);类传递是传递指针
         if(mListPointL.size()>1) {
@@ -806,8 +814,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                     //接收到数据
                     MappingGroup rtkMap=(MappingGroup) msg.obj;
                     uconnectTime=0;
-                    //    Log.d(TAG,"RTK状态："+rtkMap.rtkState+"时间："+rtkMap.GPSTime_tow+"经度："+rtkMap.longitude
-                    //           +"纬度："+rtkMap.latitude+"海拔："+rtkMap.altitude+"方向：\n"+rtkMap.direction);
+                 //       Log.d(TAG,"RTK状态："+rtkMap.rtkState+"时间："+rtkMap.GPSTime_ms+"经度："+rtkMap.longitude
+                 //              +"纬度："+rtkMap.latitude+"海拔："+rtkMap.altitude+"方向：\n"+rtkMap.yaw);
                     if(rtkMap.rtkState == 1) {//等于1才是FIX数据
                         //默认基站在画布中心，测绘点的位置是相对于基站的位置
                         moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position));
@@ -825,6 +833,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                         gpsPoint.y = screenPoint.y / 2 - gpsPointF .y* (screenPoint.y/ MAPMAX_DIS);
                         gpsPoint.d = rtkMap.yaw;
 
+                        psonPoint.x = gpsPoint.x;
+                        psonPoint.y = gpsPoint.y;
+                        psonPoint.d = gpsPoint.d;
+
                         //Log.d(TAG,"X坐标："+psonPoint.x+" Y坐标"+psonPoint.y)
                         if (false == detMapping && screenPoint.x != 0) {//正常测绘模式下
 
@@ -839,15 +851,21 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                 }
                             }else { //正常测绘
 
-                                //添加点
-                                if (robotCruisePath.AddPoint(gpsPointF, DELTA_DIST)) {//添加成功
+                                if( getLocationFlag == false) {
 
-                                    //定位数据处理
-                                    //mappingList.add(rtkMap);
+                                    psonPoint.x = gpsPoint.x;
+                                    psonPoint.y = gpsPoint.y;
+                                    psonPoint.d = gpsPoint.d;
 
+                                }else{
                                     psonPoint.x = -10000;
                                     psonPoint.y = -10000;
+                                }
 
+                                //添加点
+                                if (robotCruisePath.AddPoint(gpsPointF, DELTA_DIST)) {//添加成功
+                                    //定位数据处理
+                                    //mappingList.add(rtkMap);
                                     mListPointL.add(gpsPoint);
                                     detFlag = mListPointL.size() - 1;
 

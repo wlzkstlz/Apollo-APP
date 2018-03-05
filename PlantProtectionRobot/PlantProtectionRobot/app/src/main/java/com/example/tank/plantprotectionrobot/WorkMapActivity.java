@@ -82,12 +82,6 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
   //  private ArrayList<WorkMatch> workMatchList;
     //
 
-
-    //路径文件组
-    private ArrayList<ArrayList<GpsPoint>> routeList_M = new ArrayList<ArrayList<GpsPoint>>();//主干道
-    private ArrayList<ArrayList<GpsPoint>> routeList_L = new ArrayList<ArrayList<GpsPoint>>();//果园
-    private ArrayList<RobotCruisePath> robotCruisePaths = new ArrayList<RobotCruisePath>();//果园数据
-
     private  int matchRouteId =-1;//匹配果园路径序号
     private ArrayList<Integer> matchFlagList = new ArrayList<Integer>();
     private int isSelectRobotId; //当前控制的机器人ID
@@ -96,12 +90,25 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private boolean satrtTransfeRoute = false;
     private boolean sendFailConnectHandle = false;//传输文件失败重新连接 标志
 
-
-
+    //路径文件组
+    private ArrayList<ArrayList<GpsPoint>> routeList_M = new ArrayList<ArrayList<GpsPoint>>();//主干道
+    private ArrayList<ArrayList<GpsPoint>> routeList_L = new ArrayList<ArrayList<GpsPoint>>();//果园
+    private ArrayList<RobotCruisePath> robotCruisePaths = new ArrayList<RobotCruisePath>();//果园数据
     private GpsPoint screenPoint= new GpsPoint(); //获取屏幕的大小
     private final double NEAR_DIS = 0.5;//判断点是否重合距离，单位米
     private final int MAPMAX_DIS = 5000;//地图最大距离单位米
     private final int GPS_DIS = 111000;//纬度1度的距离，单位米
+
+    //地图相关
+    private GpsPoint basicPosition = new GpsPoint();   //基站位置
+    private GpsPoint movePoint = new GpsPoint();        //平移坐标
+    private GpsPoint robotPosition =new GpsPoint();    //机器人位置
+    private GpsPoint personPosition =new GpsPoint();   //操作员位置
+    private  int mapRatio;                 //地图放大系数
+    private  int mapRatioZoom;            //地图缩放等级
+    private final int MAPRATIO_MIN=1;
+    private final int MAPRATIO_MAX = 9;//地图放大有10个等级
+    private final int MAPRATIOZOOM_DEFAULT=1;
 
     private final int TANKLEVEL_MIN=5;
     private final int BATTERY_MIN =10;
@@ -129,16 +136,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
     private final  String TAG = "Tank001";
 
-    //地图相关
-    private GpsPoint basicPosition = new GpsPoint();   //基站位置
-    private GpsPoint movePoint = new GpsPoint();        //平移坐标
-    private GpsPoint robotPosition =new GpsPoint();    //机器人位置
-    private GpsPoint personPosition =new GpsPoint();   //操作员位置
-    private  int mapRatio;                 //地图放大系数
-    private  int mapRatioZoom;            //地图缩放等级
-    private final int MAPRATIO_MIN=1;
-    private final int MAPRATIO_MAX = 9;//地图放大有10个等级
-    private final int MAPRATIOZOOM_DEFAULT=4;
+
 
     //手势控制相关
     private PointF startPoint = new PointF(); //手指按下的坐标
@@ -172,6 +170,9 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         centerBtn = (Button)findViewById(R.id.button1);
         startBtn = (Button)findViewById(R.id.button2);
         spinner1=(Spinner) findViewById(R.id.spinner1);
+
+        startBtn.setVisibility(View.INVISIBLE);
+        workMapView.setOnTouchListener(this);
 
 
        //控制中心界面
@@ -344,14 +345,22 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
      * 机器人返回信息处理
      */
     private void translateChangeMsg(){
+
         if(isSelectRobotId == isWorkRobot.heatDataMsg.robotId){
 
-
             //坐标转换
-            robotPosition.x  = screenPoint.x / 2+ ((((double)isWorkRobot.heatDataMsg.poseLongitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI)* Math.cos(isWorkRobot.heatDataMsg.poseLatitude/MappingGroup.INM_LON_LAT_SCALE) - basicPosition.x * Math.cos(basicPosition.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
-            //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-            robotPosition.y = screenPoint.y / 2 + (basicPosition.y - ((double)isWorkRobot.heatDataMsg.poseLatitude/MappingGroup.INM_LON_LAT_SCALE)*180/MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
-            //判断是否与起点重合
+            if(robotCruisePaths.size()>0) {
+                robotPosition.x = screenPoint.x / 2 + ((((double) isWorkRobot.heatDataMsg.poseLongitude / MappingGroup.INM_LON_LAT_SCALE) * 180 / MappingGroup.PI) * Math.cos(isWorkRobot.heatDataMsg.poseLatitude / MappingGroup.INM_LON_LAT_SCALE) - robotCruisePaths.get(0).bPoint.x * Math.cos(robotCruisePaths.get(0).bPoint.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
+                robotPosition.y = screenPoint.y / 2 + (robotCruisePaths.get(0).bPoint.y - ((double) isWorkRobot.heatDataMsg.poseLatitude / MappingGroup.INM_LON_LAT_SCALE) * 180 / MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                //判断是否与起点重合
+           //     Log.d(TAG, "当前位置：X=" + robotPosition.x + " Y=" + robotPosition.y);
+            }
+            //跟踪进度
+            if(isWorkRobot.workMatch.isMatch == true){
+
+            }
+            //匹配起点
             for(int k=0;k<routeList_L.size();k++){
 
                 if(Math.abs(robotPosition.x - routeList_L.get(k).get(0).x) < (NEAR_DIS * screenPoint.x / MAPMAX_DIS)
@@ -437,8 +446,12 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
      */
     private void drawMap(){
 
-        workMapView.setRobotAndPersonPosition(robotPosition,personPosition);
-        workMapView.drawMatchRoute(routeList_L,matchFlagList);
+        workMapView.setRobotAndPersonPosition(robotPosition,personPosition, movePoint,mapRatio);
+        if(isWorkRobot.workMatch.isMatch == true) {
+
+        }else{
+            workMapView.drawMatchRoute(routeList_L, routeList_M, matchFlagList);
+        }
       //  Log.d(TAG,"画地图\n");
     }
     private void setOnClick() {
@@ -582,10 +595,27 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                     if(screenPoint.x > 0) {
 
-                        movePoint.x = (1 - mapRatio) * (robotPosition.x);
-                        movePoint.y = (1 - mapRatio) * (robotPosition.y);
+                        movePoint.x = (1 - mapRatio) * robotPosition.x;
+                        movePoint.y = (1 - mapRatio) * robotPosition.y;
+
                     }
+
+                    if (movePoint.x < screenPoint.x*(1 - mapRatio)) {
+                        movePoint.x = screenPoint.x*(1 - mapRatio);
+                    } else if (movePoint.x > 0) {
+                        movePoint.x = 0;
+                    }
+                    if (movePoint.y < screenPoint.y * (1 - mapRatio)) {
+                        movePoint.y = screenPoint.y * (1 - mapRatio);
+                    } else if (movePoint.y > 0) {
+                        movePoint.y = 0;
+                    }
+
+                //    Log.d(TAG,"倍数"+mapRatio+" 偏移X="+movePoint.x+" Y="+movePoint.y +" 位置X="+robotPosition.x+" Y="+robotPosition.y);
+
                 }
+
+
 
             }
         });
@@ -596,7 +626,27 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 if(mapRatioZoom > MAPRATIO_MIN){
                     mapRatioZoom--;
                     transformationPosition();
+                    if(screenPoint.x > 0) {
+
+                        movePoint.x = (1 - mapRatio) * robotPosition.x;
+                        movePoint.y = (1 - mapRatio) * robotPosition.y;
+                    }
+
+                    if (movePoint.x < screenPoint.x*(1 - mapRatio)) {
+                        movePoint.x = screenPoint.x*(1 - mapRatio);
+                    } else if (movePoint.x > 0) {
+                        movePoint.x = 0;
+                    }
+                    if (movePoint.y < screenPoint.y * (1 - mapRatio)) {
+                        movePoint.y = screenPoint.y * (1 - mapRatio);
+                    } else if (movePoint.y > 0) {
+                        movePoint.y = 0;
+                    }
+                //    Log.d(TAG,"倍数"+mapRatio+" 偏移X="+movePoint.x+" Y="+movePoint.y +" 位置X="+robotPosition.x+" Y="+robotPosition.y);
+
                 }
+
+
             }
         });
 
@@ -619,8 +669,6 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                     movePoint.set((1-mapRatio)*screenPoint.x/2,(1-mapRatio)*screenPoint.y/2,0,0);
                   //  mvPointO.set((1-ratioO)*screenPoint.x/2,(1-ratioO)*screenPoint.y/2,0,0);
 
-                //    basicPosition.x=-1000;
-                //    basicPosition.y=-1000;
                     workMapView.InitWorkMapView(mapRatio,movePoint,basicPosition);
                     robotPosition.x = screenPoint.x;
                     robotPosition.y = screenPoint.y;
@@ -693,10 +741,13 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         {
             case MotionEvent.ACTION_DOWN:           // 手指按下事件
                 startPoint.set(event.getX(),event.getY());
+            //    Log.d(TAG,"按下X="+startPoint.x+" Y="+startPoint.y);
                 break;
             case MotionEvent.ACTION_MOVE:          //滑动
+
                 movePoint.x = movePoint.x + event.getX() - startPoint.x;
                 movePoint.y = movePoint.y + event.getY() - startPoint.y;
+            //    Log.d(TAG,"移动X="+movePoint.x+" Y="+movePoint.y);
 
                 startPoint.x = event.getX();
                 startPoint.y = event.getY();
@@ -795,6 +846,8 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                    RobotCruisePath robotCruisePath = new RobotCruisePath();
                                    robotCruisePath.Open(files[k].getName(),filedir);
 
+                                   basicPosition.x=screenPoint.x / 2+robotCruisePath.bPoint.x;
+                                   basicPosition.y=screenPoint.y / 2+robotCruisePath.bPoint.y;
                                    //当前默认只有一个主干道
                                    //   Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
 
@@ -805,12 +858,12 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                        //转化为画布坐标
                                        point.x = screenPoint.x / 2 + robotCruisePath.mPoints.get(j).x * (screenPoint.x/ MAPMAX_DIS);
                                        point.y = screenPoint.y / 2 - robotCruisePath.mPoints.get(j).y * (screenPoint.y/ MAPMAX_DIS);
-
                                        pointList.add(point);
                                  //      Log.d(TAG,"测绘数据：X="+robotCruisePath.mPoints.get(j).x +"Y="+robotCruisePath.mPoints.get(j).y+"\n");
                                    }
 
                                    if(files[k].getName().indexOf("L_") != -1) {
+
                                        routeList_L.add(pointList);//果园
                                        robotCruisePaths.add(robotCruisePath);
 
@@ -1078,10 +1131,11 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                     Log.d(TAG,str);
                     //坐标转换
-                    personPosition.x  = screenPoint.x / 2+ ((aMapLocation.getLongitude()*180/MappingGroup.PI)* Math.cos( aMapLocation.getLatitude()) - basicPosition.x * Math.cos(basicPosition.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
-                    //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-                    personPosition.y = screenPoint.y / 2 + (basicPosition.y - aMapLocation.getLatitude()*180/MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
-
+                    if(robotCruisePaths.size()>0) {
+                        personPosition.x = screenPoint.x / 2 + ((aMapLocation.getLongitude() * 180 / MappingGroup.PI) * Math.cos(aMapLocation.getLatitude()) - robotCruisePaths.get(0).bPoint.x * Math.cos(robotCruisePaths.get(0).bPoint.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);
+                        //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
+                        personPosition.y = screenPoint.y / 2 + (robotCruisePaths.get(0).bPoint.y - aMapLocation.getLatitude() * 180 / MappingGroup.PI) * (screenPoint.y * GPS_DIS / MAPMAX_DIS);
+                    }
                 }else {
                     //   Toast.makeText(getApplicationContext(),"定位失败",
                     //         Toast.LENGTH_SHORT).show();

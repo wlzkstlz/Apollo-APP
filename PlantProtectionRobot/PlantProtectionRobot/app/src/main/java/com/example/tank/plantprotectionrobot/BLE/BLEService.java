@@ -149,14 +149,8 @@ public class BLEService extends Service {
             new Thread(){
                 @Override
                 public void run() {
-                    /*
-                    for(int i=0;i<route.size();i++){
-                         if(workBleGroup.isConnectGattCh == null){
-                        workBleGroup.sendCommand();
-                        }
-                    }*/
 
-                    byte[]bbuf =new byte[16];
+                    byte[]bbuf =new byte[20];
                     int index=0;
                     putDouble(bbuf,robotCruisePath.bPoint.x,index);
                     index+=8;
@@ -263,6 +257,11 @@ public class BLEService extends Service {
                 mBLE.disconnect();
                 mBLE.close();
                 workBleGroup.isConnectGattCh = null;
+                workBleGroup.isWorkingId = 0;
+                workBleGroup.bleHandleCneted=null;
+                workBleGroup.bleRobotCneted=null;
+                workBleGroup.bleMapCneted=null;
+                workBleGroup.bleBasicCneted=null;
                 Log.d(TAG," Bleservice->断开连接");
             }
             //重新连接时，先清除之前的回调函数
@@ -296,7 +295,12 @@ public class BLEService extends Service {
                 mBLE.disconnect();
                 mBLE.close();
                 workBleGroup.isWorkingId = 0;
+
                 workBleGroup.isConnectGattCh = null;
+                workBleGroup.bleHandleCneted=null;
+                workBleGroup.bleRobotCneted=null;
+                workBleGroup.bleMapCneted=null;
+                workBleGroup.bleBasicCneted=null;
             }
         }
         //开始连接蓝牙
@@ -414,6 +418,7 @@ public class BLEService extends Service {
                     }
 
 
+                    /*
                     a +=0.00001;
                     MappingGroup rtkMap = new MappingGroup();
            //         rtkMap.longitude = (int)(((113.894753+a)*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
@@ -430,9 +435,9 @@ public class BLEService extends Service {
                     if(mappingCallback !=null) {
                         mappingCallback.BleDataChanged(rtkMap);
                     }
-
+*/
                     try {
-                        sleep(100); //延时
+                        sleep(10); //延时
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }

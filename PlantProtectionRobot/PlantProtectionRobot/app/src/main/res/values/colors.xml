@@ -11,5 +11,6 @@
     <color name="colorGray">#808A87</color>
     <color name="tankgreen1">#8BFF0C</color>
     <color name="tankgreen">#8BC34A</color>
+    <color name="tankblue">#3F51B5</color>
 
 </resources>

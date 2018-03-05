@@ -34,6 +34,7 @@ public class WorkMapView extends View {
 
     private Paint grayPaint = new Paint();   //灰色画笔
     private Paint greenPaint = new Paint(); //绿色画笔
+    private Paint bluePaint = new Paint(); //绿色画笔
 
     //矩阵变换
     private Matrix matrix = new Matrix();
@@ -42,11 +43,13 @@ public class WorkMapView extends View {
 
     //路径文件
     private ArrayList<ArrayList<GpsPoint>> routeList=null;
+    private ArrayList<ArrayList<GpsPoint>> routeListM=null;
     //匹配标记，位置对应路径文件，=0未匹配=1已匹配
     private ArrayList<Integer> matchFlagList = null;
 
     //匹配后正在作业的路径,已完成部分
-    ArrayList<GpsPoint> ctrRobotRouteGray=null;
+    private ArrayList<GpsPoint> workRobotRoute=null;
+    private int index;//工作时进度
 
 
     public WorkMapView(Context context, AttributeSet attrs, int defStyle) {
@@ -70,13 +73,28 @@ public class WorkMapView extends View {
         super.onDraw(canvas);
 
         canvas.translate((int)movePoint.x,(int)movePoint.y);
-     //   Log.d("Tank001","偏移X="+movePoint.x+"Y="+movePoint.y+"\n");
+      //  Log.d("Tank001","倍数="+mapRatio+" MAP偏移X="+movePoint.x+" Y="+movePoint.y+" 位置X="+mapRatio * robotPosition.x+"Y="+mapRatio * robotPosition.y);
 
-    //    Path path0 = new Path();
-     //   path0.addCircle(200,200,50,Path.Direction.CW);
-     //   canvas.drawPath(path0, greenPaint);
+        if(routeListM !=null){
+            for(int i=0;i<routeListM.size();i++){
 
+                Path path = new Path();
+                for (int index = 0; index < routeList.get(i).size(); index++) {
 
+                    if (index == 0) {
+                        path.moveTo((int) (mapRatio * routeListM.get(i).get(index).x), (int) (mapRatio * routeListM.get(i).get(index).y));
+                    } else if (index == routeListM.get(i).size() - 1) {
+                        path.moveTo((int) (mapRatio * routeListM.get(i).get(index).x), (int) (mapRatio * routeListM.get(i).get(index).y));
+                    } else {
+                        path.lineTo((int) (mapRatio * routeListM.get(i).get(index).x), (int) (mapRatio * routeListM.get(i).get(index).y));
+                    }
+
+                }
+                path.close();
+                canvas.drawPath(path,bluePaint);
+            }
+        }
+        //果园路径
         if(routeList !=null && matchFlagList !=null){
 
             for(int i=0;i<routeList.size();i++){
@@ -87,7 +105,7 @@ public class WorkMapView extends View {
 
                     for (int index = 0; index < routeList.get(i).size(); index++) {
 
-                        Log.d("Tank001","未匹配坐标：X="+routeList.get(i).get(index).x+" Y="+routeList.get(i).get(index).y+"\n");
+                   //     Log.d("Tank001","未匹配坐标：X="+routeList.get(i).get(index).x+" Y="+routeList.get(i).get(index).y+"\n");
                         if (index == 0) {
                             path.moveTo((int) (mapRatio * routeList.get(i).get(index).x), (int) (mapRatio * routeList.get(i).get(index).y));
                         } else if (index == routeList.get(i).size() - 1) {
@@ -120,22 +138,40 @@ public class WorkMapView extends View {
                 }
             }
         }
-        //绘制正在作业已完成的部分
-        if(ctrRobotRouteGray !=null){
-            Path path = new Path();
-            for (int index = 0; index < ctrRobotRouteGray.size(); index++) {
 
-                if (index == 0) {
-                    path.moveTo((int) (mapRatio * ctrRobotRouteGray.get(index).x), (int) (mapRatio * ctrRobotRouteGray.get(index).y));
-                } else if (index == ctrRobotRouteGray.size() - 1) {
-                    path.moveTo((int) (mapRatio * ctrRobotRouteGray.get(index).x), (int) (mapRatio * ctrRobotRouteGray.get(index).y));
+        //绘制正在作业的路径
+        if(workRobotRoute !=null){
+            Path path = new Path();
+            //绘制正在作业已完成的部分
+            for (int i = 0; i<index; i++) {
+
+                if (i == 0) {
+                    path.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
+                } else if (i == index - 1) {
+                    path.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
                 } else {
-                    path.lineTo((int) (mapRatio * ctrRobotRouteGray.get(index).x), (int) (mapRatio * ctrRobotRouteGray.get(index).y));
+                    path.lineTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
                 }
 
             }
             path.close();
             canvas.drawPath(path, grayPaint);
+
+            //未完成部分
+            Path path1 = new Path();
+            for(int i=index;i<workRobotRoute.size();i++){
+                if (i == index) {
+                    path1.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
+                } else if (i == workRobotRoute.size() - 1) {
+                    path1.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
+                } else {
+                    path1.lineTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
+                }
+            }
+            path1.close();
+            String str = (index/workRobotRoute.size())*100+"%";
+            canvas.drawText(str,(float) workRobotRoute.get(index).x,(float)workRobotRoute.get(index).y,grayPaint);//显示进度
+            canvas.drawPath(path1, greenPaint);
         }
 
 
@@ -184,6 +220,10 @@ public class WorkMapView extends View {
         greenPaint.setStrokeWidth(4f);
         greenPaint.setStyle(Paint.Style.STROKE);
 
+        bluePaint.setColor(getResources().getColor(R.color.tankblue));
+        bluePaint.setStrokeWidth(4f);
+        bluePaint.setStyle(Paint.Style.STROKE);
+
     }
 
     /***
@@ -191,22 +231,26 @@ public class WorkMapView extends View {
      * @param routeList
      * @param isMatch
      */
-    public void drawMatchRoute(ArrayList<ArrayList<GpsPoint>> routeList,ArrayList<Integer> isMatch){
+    public void drawMatchRoute(ArrayList<ArrayList<GpsPoint>> routeList,ArrayList<ArrayList<GpsPoint>> routeListM,ArrayList<Integer> isMatch){
         this.routeList=routeList;
-
+        this.routeListM =routeListM;
         this.matchFlagList =isMatch;
-        ctrRobotRouteGray=null;
+        workRobotRoute=null;
         invalidate();
 
     }
 
     /***
-     * 绘制正在作业已完成部分
-     * @param ctrRobotRouteGray
+     *
+     * @param workRoute 这在作业的路径
+     * @param routeListM 主干道
+     * @param index 机器人当前位置
      */
-    public void controlRobotRoute(ArrayList<GpsPoint> ctrRobotRouteGray){
-        this.ctrRobotRouteGray = ctrRobotRouteGray;
-        routeList =null;
+    public void drawWorkRoute(ArrayList<GpsPoint> workRoute,ArrayList<ArrayList<GpsPoint>> routeListM,int index){
+        this.routeListM =routeListM;
+        this.routeList = null;
+        this.workRobotRoute =workRoute;
+        this.index = index;
         matchFlagList =null;
         invalidate();
     }
@@ -216,9 +260,11 @@ public class WorkMapView extends View {
      * @param robotPosition
      * @param personPosition
      */
-    public void setRobotAndPersonPosition(GpsPoint robotPosition,GpsPoint personPosition){
+    public void setRobotAndPersonPosition(GpsPoint robotPosition,GpsPoint personPosition,GpsPoint movePoint,int mapRatio){
         this.robotPosition=robotPosition;
         this.personPosition =personPosition;
+        this.movePoint = movePoint;
+        this.mapRatio=mapRatio;
         invalidate();
     }
 

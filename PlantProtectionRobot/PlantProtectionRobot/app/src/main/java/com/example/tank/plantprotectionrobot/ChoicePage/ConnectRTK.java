@@ -216,8 +216,11 @@ public class ConnectRTK extends Fragment {
                     //      Log.d("Tank001","经度"+bPoint.x+"纬度"+bPoint.y);
 
                     infoEditor.putString("MappingType", MappingType);
-                    infoEditor.putLong("basicRTK.X", (long) ((bPoint.x*MappingGroup.PI/180) * 10000000000l));
-                    infoEditor.putLong("basicRTK.Y", (long) ((bPoint.y*MappingGroup.PI/180) * 10000000000l));
+                  //  infoEditor.putLong("basicRTK.X", (long) ((bPoint.x*MappingGroup.PI/180) * 10000000000l));
+                 //   infoEditor.putLong("basicRTK.Y", (long) ((bPoint.y*MappingGroup.PI/180) * 10000000000l));
+
+                   infoEditor.putLong("basicRTK.X", (long) (bPoint.x * 10000000000l));
+                   infoEditor.putLong("basicRTK.Y", (long) (bPoint.y * 10000000000l));
                     infoEditor.commit();
 
                     startActivity(intentMap);
