@@ -136,6 +136,7 @@ public class WorkBleGroup {
         MappingGroup rtkMap =new MappingGroup();
         //测绘数据长度，等于两个蓝牙数据包,35字节
         byte[] buf = characteristic.getValue();
+
         if(20 == buf.length && revCount == 0) {//第一个包为20字节才开始接收
             revCount =1;
             System.arraycopy(buf, 0, bleBuf, 0, buf.length);

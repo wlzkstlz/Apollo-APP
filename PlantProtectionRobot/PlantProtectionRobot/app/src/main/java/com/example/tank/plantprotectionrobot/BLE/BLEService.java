@@ -256,12 +256,13 @@ public class BLEService extends Service {
             if(type != workBleGroup.isWorkingId){
                 mBLE.disconnect();
                 mBLE.close();
+                /*
                 workBleGroup.isConnectGattCh = null;
-                workBleGroup.isWorkingId = 0;
                 workBleGroup.bleHandleCneted=null;
                 workBleGroup.bleRobotCneted=null;
                 workBleGroup.bleMapCneted=null;
                 workBleGroup.bleBasicCneted=null;
+                */
                 Log.d(TAG," Bleservice->断开连接");
             }
             //重新连接时，先清除之前的回调函数
@@ -417,18 +418,17 @@ public class BLEService extends Service {
 
                     }
 
-
                     /*
-                    a +=0.00001;
+                    a +=0.000001;
                     MappingGroup rtkMap = new MappingGroup();
-           //         rtkMap.longitude = (int)(((113.894753+a)*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
-            //        rtkMap.latitude = (int)(((22.958744+a)*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
-                    rtkMap.longitude = (int)((a*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
-                    rtkMap.latitude = (int)((a*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
+                    rtkMap.longitude = (int)(((113.8837062+a)*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
+                    rtkMap.latitude = (int)(((22.9557001+a)*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
+               //     rtkMap.longitude = (int)((a*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
+               //     rtkMap.latitude = (int)((a*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
                     rtkMap.altitude = 50;
                     rtkMap.roll = 20;
                     rtkMap.pitch=20;
-                    rtkMap.yaw = (float) (a*10000000);
+                    rtkMap.yaw = (float) (a*100000);
                     rtkMap.GPSTime_ms = 20;
                     rtkMap.GPSTime_weeks=20;
                     rtkMap.rtkState =1;

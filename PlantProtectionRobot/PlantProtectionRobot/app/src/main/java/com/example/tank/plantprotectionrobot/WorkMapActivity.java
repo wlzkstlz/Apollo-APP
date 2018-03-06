@@ -357,8 +357,29 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
            //     Log.d(TAG, "当前位置：X=" + robotPosition.x + " Y=" + robotPosition.y);
             }
             //跟踪进度
-            if(isWorkRobot.workMatch.isMatch == true){
+            if(isWorkRobot.workMatch.isMatch == true ){
 
+                if(isWorkRobot.workMatch.taskCompleted/isWorkRobot.workMatch.matchroute.size() > 1 && isWorkRobot.workMatch.taskCompleted>1) {
+                    for (int k = isWorkRobot.workMatch.taskCompleted-1; k < isWorkRobot.workMatch.matchroute.size(); k++) {
+                        if (Math.abs(robotPosition.x - isWorkRobot.workMatch.matchroute.get(k).x) < (NEAR_DIS * screenPoint.x / MAPMAX_DIS)
+                                && Math.abs(robotPosition.y - isWorkRobot.workMatch.matchroute.get(k).y) < (NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
+                            if (workRobotList.get(k).workMatch.isMatch == false) {//重合点
+                                isWorkRobot.workMatch.taskCompleted = k;
+                                break;
+                            }
+                        }
+                    }
+                }else{
+                    for (int k = 0; k < isWorkRobot.workMatch.matchroute.size(); k++) {
+                        if (Math.abs(robotPosition.x - isWorkRobot.workMatch.matchroute.get(k).x) < (NEAR_DIS * screenPoint.x / MAPMAX_DIS)
+                                && Math.abs(robotPosition.y - isWorkRobot.workMatch.matchroute.get(k).y) < (NEAR_DIS * screenPoint.y / MAPMAX_DIS)) {
+                            if (workRobotList.get(k).workMatch.isMatch == false) {//重合点
+                                isWorkRobot.workMatch.taskCompleted = k;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
             //匹配起点
             for(int k=0;k<routeList_L.size();k++){
@@ -447,11 +468,13 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private void drawMap(){
 
         workMapView.setRobotAndPersonPosition(robotPosition,personPosition, movePoint,mapRatio);
-        if(isWorkRobot.workMatch.isMatch == true) {
-
-        }else{
+        /*
+        if(isWorkRobot.workMatch.isMatch == true) {//绘制正在作业路径
+            workMapView.drawWorkRoute(isWorkRobot.workMatch.matchroute, routeList_M, isWorkRobot.workMatch.taskCompleted);
+        }else{//绘制匹配模式下所有路径
             workMapView.drawMatchRoute(routeList_L, routeList_M, matchFlagList);
-        }
+        }*/
+        workMapView.drawMatchRoute(routeList_L, routeList_M, matchFlagList);
       //  Log.d(TAG,"画地图\n");
     }
     private void setOnClick() {

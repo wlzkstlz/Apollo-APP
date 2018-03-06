@@ -13,7 +13,7 @@ public class WorkMatch {
     public String routeName;  //路径名
     public boolean isMatch;  //是否匹配
     public  ArrayList<GpsPoint> matchroute;//匹配的路径
-    public int taskCompleted;//任务完成进度
+    public int taskCompleted;//任务完成进度,即是当前机器人位置
 
     public WorkMatch(){
         //默认值

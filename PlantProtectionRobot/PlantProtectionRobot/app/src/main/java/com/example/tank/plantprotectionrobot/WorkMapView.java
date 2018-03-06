@@ -49,7 +49,7 @@ public class WorkMapView extends View {
 
     //匹配后正在作业的路径,已完成部分
     private ArrayList<GpsPoint> workRobotRoute=null;
-    private int index;//工作时进度
+    private int indexFlag;//工作时进度
 
 
     public WorkMapView(Context context, AttributeSet attrs, int defStyle) {
@@ -79,7 +79,7 @@ public class WorkMapView extends View {
             for(int i=0;i<routeListM.size();i++){
 
                 Path path = new Path();
-                for (int index = 0; index < routeList.get(i).size(); index++) {
+                for (int index = 0; index < routeListM.get(i).size(); index++) {
 
                     if (index == 0) {
                         path.moveTo((int) (mapRatio * routeListM.get(i).get(index).x), (int) (mapRatio * routeListM.get(i).get(index).y));
@@ -143,11 +143,11 @@ public class WorkMapView extends View {
         if(workRobotRoute !=null){
             Path path = new Path();
             //绘制正在作业已完成的部分
-            for (int i = 0; i<index; i++) {
+            for (int i = 0; i<indexFlag; i++) {
 
                 if (i == 0) {
                     path.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
-                } else if (i == index - 1) {
+                } else if (i == indexFlag - 1) {
                     path.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
                 } else {
                     path.lineTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
@@ -159,8 +159,8 @@ public class WorkMapView extends View {
 
             //未完成部分
             Path path1 = new Path();
-            for(int i=index;i<workRobotRoute.size();i++){
-                if (i == index) {
+            for(int i=indexFlag;i<workRobotRoute.size();i++){
+                if (i == indexFlag) {
                     path1.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
                 } else if (i == workRobotRoute.size() - 1) {
                     path1.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
@@ -169,8 +169,8 @@ public class WorkMapView extends View {
                 }
             }
             path1.close();
-            String str = (index/workRobotRoute.size())*100+"%";
-            canvas.drawText(str,(float) workRobotRoute.get(index).x,(float)workRobotRoute.get(index).y,grayPaint);//显示进度
+            String str = (indexFlag/workRobotRoute.size())*100+"%";
+            canvas.drawText(str,(float) workRobotRoute.get(indexFlag).x,(float)workRobotRoute.get(indexFlag).y,grayPaint);//显示进度
             canvas.drawPath(path1, greenPaint);
         }
 
@@ -250,7 +250,7 @@ public class WorkMapView extends View {
         this.routeListM =routeListM;
         this.routeList = null;
         this.workRobotRoute =workRoute;
-        this.index = index;
+        this.indexFlag = index;
         matchFlagList =null;
         invalidate();
     }
