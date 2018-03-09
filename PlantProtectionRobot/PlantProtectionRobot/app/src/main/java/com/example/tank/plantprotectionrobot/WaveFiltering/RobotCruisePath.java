@@ -78,7 +78,7 @@ public class RobotCruisePath {
         float deltaPhi;
     }
 
-    void AddPointForce(PointF point){
+    public void AddPointForce(PointF point){
         mPoints.add(point);
         mSumNum=1;
         mSumX=point.x;

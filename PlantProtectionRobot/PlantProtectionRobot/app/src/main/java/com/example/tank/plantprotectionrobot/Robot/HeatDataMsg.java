@@ -8,6 +8,7 @@ public class HeatDataMsg {
 
     public  int robotId;//机器人编号
     public  byte command;//需要执行的指令
+    public  byte revCommand;//接收到的指令
     public  int poseLongitude;//相对于基站距离x
     public  int  poseLatitude;//相对于基站距离x
     public  short  posePhi;//海拔
@@ -21,6 +22,7 @@ public class HeatDataMsg {
     public byte rtkState;//rtk状态
     public boolean taskFile;//有无任务文件
     public boolean motorState;//发动机状态
+
 
     /*
     public void heatDataMsgRest(){

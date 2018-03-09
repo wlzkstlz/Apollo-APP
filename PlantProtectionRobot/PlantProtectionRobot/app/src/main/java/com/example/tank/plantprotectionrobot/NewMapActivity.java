@@ -98,6 +98,10 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private final double VIRTUAL_DIS = 0.4;//虚拟点距离
     private final int MAPMAX_DIS = 5000;//地图最大距离单位米
     private final int GPS_DIS = 111000;//纬度1度的距离，单位米
+
+    //路径滤波
+    private RobotCruisePath robotCruisePath = new RobotCruisePath();
+    private static  final float  DELTA_DIST = 0.5f; //过滤参数
     //基站坐标
     private GpsPoint bPoint = new GpsPoint();//弧度制
     private boolean firstInit = true;//第一次进程序
@@ -148,10 +152,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
     private final int DIALOG_START_MAPPING = 2;
     private int uconnectTime=0;//掉线检测，3秒没接收到数据认为掉线，定时器中计数，接收回调函数中清零
 
-    //路径滤波
-    private RobotCruisePath robotCruisePath = new RobotCruisePath();
-    private static  final float  DELTA_DIST = 0.25f; //过滤参数
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -188,18 +188,27 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
             public void handleMessage(Message msg) {
                 if (msg.what == DRAW_MAP) {
 
-                    if (mListPointL.size() > 1) {
+                    if (mListPointL.size() > 0) {
 
                         ArrayList<GpsPoint> list1 = new ArrayList<GpsPoint>();
                         ArrayList<GpsPoint> list2 = new ArrayList<GpsPoint>();
 
-                        if(mListPointL.size()>0) {
+                        if(mListPointL.size() > 1) {
                            list1.addAll(mListPointL.subList(0, detIndex + 1));
-                           list2.addAll(mListPointL.subList(detIndex-1, mListPointL.size()));
+
+                           if(detIndex >0) {
+                               list2.addAll(mListPointL.subList(detIndex-1, mListPointL.size()));
+                           }else if(detIndex == 0){
+                               list2.addAll(mListPointL.subList(detIndex, mListPointL.size()));
+                           }
+                        }else if(mListPointL.size() == 1){
+                            list1.addAll(mListPointL.subList(0, 1));
+                            list2.addAll(mListPointL.subList(0, 1));
                         }
                         //   Log.d("Tank001","截断点："+flag);
                         if (detMapping == false) {
-                            mapView.setLinePoint2(list1, mListPointM, list1.get(list1.size() - 1),psonPoint, mvPoint, ratio);
+                        //    mapView.setLinePoint2(list1, mListPointM, list1.get(list1.size() - 1),psonPoint, mvPoint, ratio);
+                            mapView.setLinePoint2(mListPointL, mListPointM, mListPointL.get(mListPointL.size()-1),psonPoint, mvPoint, ratio);
                         } else {
                             mapView.setLinePoint3(list1, list2, mListPointM, list2.get(list2.size() - 1), psonPoint, touchPoint, mvPoint, ratio);
 
@@ -361,14 +370,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
             @Override
             public void onClick(View view) {
 
-
-
                 if(false == detMapping) {
 
-                    if (binder != null) {
-                        //断开蓝牙连接
-                          binder.unconnectBle();
-                    }
                     new Thread(){
                         @Override
                         public void run() {
@@ -493,6 +496,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
      * 初始化画布相关
      */
     private void InitDrawMap(){
+
 
         mListPointL = new ArrayList<GpsPoint>();
         mListPointM = new ArrayList<GpsPoint>();
@@ -775,8 +779,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                     //接收到数据
                     MappingGroup rtkMap=(MappingGroup) msg.obj;
                     uconnectTime=0;
-                       Log.d(TAG,"RTK状态："+rtkMap.rtkState+"时间："+rtkMap.GPSTime_ms+"经度："+rtkMap.longitude*180/MappingGroup.PI
-                               +"纬度："+rtkMap.latitude*180/MappingGroup.PI+"海拔："+rtkMap.altitude+"方向：\n"+rtkMap.yaw);
+                //       Log.d(TAG,"RTK状态："+rtkMap.rtkState+"时间："+rtkMap.GPSTime_ms+"经度："+rtkMap.longitude*180/MappingGroup.PI
+                //               +"纬度："+rtkMap.latitude*180/MappingGroup.PI+"海拔："+rtkMap.altitude+"方向：\n"+rtkMap.yaw);
 
                     if(rtkMap.rtkState == 1) {//等于1才是FIX数据
 
@@ -795,7 +799,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
 
                         if (false == detMapping && screenPoint.x != 0) {//正常测绘模式下
 
-                            if(getLocationFlag == false && robotCruisePath.mPoints.size()>2){//定位失败，第一次进入定位成功
+                            if(getLocationFlag == false && robotCruisePath.mPoints.size()>=2){//定位失败，第一次进入定位成功
                                 //获取虚拟点
                                 PointF virPoint = getVirtualLocation(robotCruisePath.mPoints.get(robotCruisePath.mPoints.size()-2),
                                         robotCruisePath.mPoints.get(robotCruisePath.mPoints.size()-1));
@@ -808,6 +812,8 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                         vibrationAndMusic.Vibrate(new long[]{500, 1000, 500, 1000}, true);
                                     }
                                     getLocationFlag =true;
+                                    //强制添加点
+                                    robotCruisePath.AddPointForce(gpsPointF);
                                 }
                             }else { //正常测绘
 
@@ -846,7 +852,12 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                             //与虚拟点重合
                             if (Math.abs(gpsPointF.x - virPoint.x) < NEAR_DIS
                                          && Math.abs(gpsPointF.y - virPoint.y) < NEAR_DIS) {
+                                //第一次重合，强制添加点
+                                if(detEnable == false){
+                                    robotCruisePath.AddPointForce(gpsPointF);
+                                }
                                 detEnable = true;
+
                                 //手机振动
                                 if(vibrationAndMusic.getVibrate() == false) {
                                     vibrationAndMusic.Vibrate(new long[]{500, 1000,500,1000}, true);
@@ -854,7 +865,12 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                                 if (vibrationAndMusic.getMusicState() == false){
                                     vibrationAndMusic.playmusic(true);
                                 }
+
                             }else {
+                                //第一次由重合到退出，删除强制添加的点
+                                if(detEnable == true) {
+                                    robotCruisePath.DeletePoints(robotCruisePath.mPoints.size()-1);
+                                }
                                 detEnable = false;
                                 //停止振动，和播放音乐
                                 if(vibrationAndMusic.getVibrate()) {
@@ -951,7 +967,9 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                      //  Log.d(TAG,"信号丢失");
                     }
                    */
-                    binder.connectBle(null,true);//掉线重连
+                    if(binder != null) {
+                        binder.connectBle(null, true);//掉线重连
+                    }
                     Log.d(TAG,"信号丢失");
 
                     break;
@@ -1026,7 +1044,6 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
      */
     class BleServiceConn implements ServiceConnection {
         // 服务被绑定成功之后执行
-
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
 
@@ -1102,7 +1119,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         };
         timer.schedule(timerTask,1000,100);
 
-        Log.d(TAG, "NewMap onStart()");
+        Log.d(TAG, "NewMaoActivity->onStart()");
         super.onStart();
     }
 
@@ -1128,7 +1145,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
         }
 
 
-        Log.d(TAG, "onDestroy() ");
+        Log.d(TAG, "NewMaoActivity->onDestroy() ");
         super.onDestroy();
     }
 

@@ -8,6 +8,8 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Point;
+import android.graphics.PointF;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
@@ -35,6 +37,7 @@ public class WorkMapView extends View {
     private Paint grayPaint = new Paint();   //灰色画笔
     private Paint greenPaint = new Paint(); //绿色画笔
     private Paint bluePaint = new Paint(); //绿色画笔
+    private Paint circlePaint = new Paint();//画圆形的画笔
 
     //矩阵变换
     private Matrix matrix = new Matrix();
@@ -83,6 +86,8 @@ public class WorkMapView extends View {
 
                     if (index == 0) {
                         path.moveTo((int) (mapRatio * routeListM.get(i).get(index).x), (int) (mapRatio * routeListM.get(i).get(index).y));
+
+
                     } else if (index == routeListM.get(i).size() - 1) {
                         path.moveTo((int) (mapRatio * routeListM.get(i).get(index).x), (int) (mapRatio * routeListM.get(i).get(index).y));
                     } else {
@@ -107,6 +112,9 @@ public class WorkMapView extends View {
 
                    //     Log.d("Tank001","未匹配坐标：X="+routeList.get(i).get(index).x+" Y="+routeList.get(i).get(index).y+"\n");
                         if (index == 0) {
+
+                            canvas.drawCircle((int) (mapRatio * routeList.get(i).get(index).x), (int) (mapRatio * routeList.get(i).get(index).y), 20,circlePaint);
+
                             path.moveTo((int) (mapRatio * routeList.get(i).get(index).x), (int) (mapRatio * routeList.get(i).get(index).y));
                         } else if (index == routeList.get(i).size() - 1) {
                             path.moveTo((int) (mapRatio * routeList.get(i).get(index).x), (int) (mapRatio * routeList.get(i).get(index).y));
@@ -140,7 +148,7 @@ public class WorkMapView extends View {
         }
 
         //绘制正在作业的路径
-        if(workRobotRoute !=null){
+        if(workRobotRoute !=null && indexFlag>0){
             Path path = new Path();
             //绘制正在作业已完成的部分
             for (int i = 0; i<indexFlag; i++) {
@@ -169,9 +177,19 @@ public class WorkMapView extends View {
                 }
             }
             path1.close();
-            String str = (indexFlag/workRobotRoute.size())*100+"%";
-            canvas.drawText(str,(float) workRobotRoute.get(indexFlag).x,(float)workRobotRoute.get(indexFlag).y,grayPaint);//显示进度
+            //显示任务进度
+
+            if (indexFlag > 0 && indexFlag < workRobotRoute.size()) {
+                String str = (indexFlag * 100 / workRobotRoute.size()) + "%";
+                canvas.drawText(str, (float) workRobotRoute.get(indexFlag).x, (float) workRobotRoute.get(indexFlag).y, grayPaint);//显示进度
+            }
             canvas.drawPath(path1, greenPaint);
+        }else if(indexFlag == 0 && workRobotRoute !=null){
+            if(workRobotRoute.size()>0){
+                String str = ("0%");
+                canvas.drawText(str,(float) workRobotRoute.get(indexFlag).x,(float)workRobotRoute.get(indexFlag).y,grayPaint);//显示进度
+            }
+
         }
 
 
@@ -219,6 +237,10 @@ public class WorkMapView extends View {
         greenPaint.setColor(getResources().getColor(R.color.tankgreen));
         greenPaint.setStrokeWidth(4f);
         greenPaint.setStyle(Paint.Style.STROKE);
+
+        circlePaint.setColor(getResources().getColor(R.color.tankgreen));
+        circlePaint.setStrokeWidth(4f);
+        circlePaint.setStyle(Paint.Style.FILL);
 
         bluePaint.setColor(getResources().getColor(R.color.tankblue));
         bluePaint.setStrokeWidth(4f);

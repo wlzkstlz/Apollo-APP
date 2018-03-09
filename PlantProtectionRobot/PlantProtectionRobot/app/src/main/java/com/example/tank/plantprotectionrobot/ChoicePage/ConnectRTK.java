@@ -36,7 +36,6 @@ import com.example.tank.plantprotectionrobot.R;
 import java.util.ArrayList;
 import java.util.List;
 
-
 /**
  * @新建地图时，连接测绘杆界面
  */
@@ -224,6 +223,8 @@ public class ConnectRTK extends Fragment {
                     infoEditor.commit();
 
                     startActivity(intentMap);
+                 //  ble_connectFlag= false;
+
 
                 }else {
                     Toast.makeText(getActivity(), "未连接测绘，无法测绘" ,
@@ -253,6 +254,7 @@ public class ConnectRTK extends Fragment {
     Handler handler = new Handler() {
         public void handleMessage(android.os.Message msg) {
             //在handler中更新UI
+            MySpinnerAdapter adapter;
             switch(msg.what){
                 case  BLE_SCAN_ON:
 
@@ -265,7 +267,6 @@ public class ConnectRTK extends Fragment {
                        }
                        selectedFirst = true;
                        //填充到spinner
-                       MySpinnerAdapter adapter;
                        adapter = new MySpinnerAdapter(getActivity(),
                                android.R.layout.simple_spinner_item, listRTK);
                        spinner1.setAdapter(adapter);
@@ -279,7 +280,7 @@ public class ConnectRTK extends Fragment {
                        listRTK[0] = "没搜索到，点击刷新";
                        mBleDeviceList.clear();
                         //填充到spinner
-                        MySpinnerAdapter adapter;
+
                         adapter = new MySpinnerAdapter(getActivity(),
                                 android.R.layout.simple_spinner_item, listRTK);
                         spinner1.setAdapter(adapter);
@@ -295,7 +296,7 @@ public class ConnectRTK extends Fragment {
                     break;
                 case BLE_CONNECT_OFF:
                     String[]  list =  new String[2];
-                    list[0] = "连接断开，点击新搜索";
+                    list[0] = "连接断开，点击搜索";
                     mBleDeviceList.clear();
                     //填充到spinner
                     adapter = new MySpinnerAdapter(getActivity(),
@@ -328,6 +329,7 @@ public class ConnectRTK extends Fragment {
             //绑定后执行动作
 
             binder.setBleWorkTpye(BLEService.BLE_MAP_CONECT,true);
+
             binder.startScanBle();//搜索蓝牙
 
             binder.getService().setMappingCallback(new BLEService.MappingCallback() {
@@ -404,4 +406,17 @@ public class ConnectRTK extends Fragment {
         editText2.setText(""+bPoint.y);
     }
 
+    @Override
+    public void onResume() {
+        //由NewMapActivity回到本界面是没有触发setUserVisibleHint(boolean isVisibleToUser)
+
+        if(ble_connectFlag == true){
+            selectedFirst =true;
+            ble_connectFlag = false;
+            //绑定蓝牙服务
+            getActivity().bindService(intentSev, bleServiceConn, Context.BIND_AUTO_CREATE);
+            Log.d(TAG,"ConnectRTK,绑定BLE");
+        }
+        super.onResume();
+    }
 }

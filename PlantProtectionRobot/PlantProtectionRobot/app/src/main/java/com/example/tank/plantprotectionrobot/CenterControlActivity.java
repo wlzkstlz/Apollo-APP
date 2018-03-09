@@ -260,8 +260,9 @@ public class CenterControlActivity extends AppCompatActivity {
                 }
 
 
-                if(workRobotList.get(i).robotOnline == false  || (workRobotList.get(i).heatDataMsg.rtkState & 0x03) != 0x03) {
+            //    if(workRobotList.get(i).robotOnline == false  || (workRobotList.get(i).heatDataMsg.rtkState & 0x03) != 0x03) {
 
+                if(workRobotList.get(i).robotOnline == false){
                     map.put("mac_task", "--");
                     map.put("mac_pesticides", "--");
                     map.put("mac_power", "--");
@@ -270,18 +271,50 @@ public class CenterControlActivity extends AppCompatActivity {
 
                 }else{
 
-                    map.put("mac_task", "" + workRobotList.get(i).heatDataMsg.curState + "%");
                     map.put("mac_pesticides", "" + workRobotList.get(i).heatDataMsg.tankLevel + "%");
                     map.put("mac_power", "" + workRobotList.get(i).heatDataMsg.batteryPercentage + "%");
 
                     if(workRobotList.get(i).heatDataMsg.taskFile == true){
-                        if (workRobotList.get(i).heatDataMsg.curState < 100) {
+                        /*
+                        map.put("mac_task", "" +(workRobotList.get(i).workMatch.index*100)/workRobotList.get(i).workMatch.matchPath.mPoints.size()+ "0%");
+
+                        if (workRobotList.get(i).workMatch.index < workRobotList.get(i).workMatch.matchPath.mPoints.size()) {
                             state += "作业";
                         } else {
                             state += "完成";
-                        }
+                        }*/
+                        map.put("mac_task", "--");
+                        state += "作业";
                     }else{
-                        state += "转场";
+                        map.put("mac_task", "--");//没有任务
+                        switch (workRobotList.get(i).workAuto){
+                            case TankRobot.PILOT_STATE_INIT:
+                                state +="初始化";
+                                break;
+                            case TankRobot.PILOT_STATE_IDLE:
+                                state +="空闲";
+                                break;
+                            case TankRobot.PILOT_STATE_TRANSITION:
+                                state +="转场";
+                                break;
+                            case TankRobot.PILOT_STATE_AUTO:
+                                state +="自驾";
+                                break;
+                            case TankRobot.PILOT_STATE_MANUAL_WORK:
+                                state +="手动";
+                                break;
+                            case TankRobot.PILOT_STATE_SUPPLY:
+                                state +="补给";
+                                break;
+                            case TankRobot.PILOT_STATE_BLE_TRANSFER:
+                                state +="传输";
+                                break;
+                            case TankRobot.PILOT_STATE_EMERGENCY:
+                                state +="急停";
+                                break;
+
+
+                        }
                     }
                     if(workRobotList.get(i).heatDataMsg.tankLevel < TANKLEVEL_MIN){
                         state +="|加药";
@@ -294,6 +327,7 @@ public class CenterControlActivity extends AppCompatActivity {
                     }
 
                 }
+
                 map.put("mac_state", state);
                 list.add(map);
             }

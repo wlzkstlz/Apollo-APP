@@ -112,7 +112,7 @@ public class MapView extends View {
                 path1.lineTo( (int)(mapRatio*mListPoint1.get(index).x),(int)(mapRatio*mListPoint1.get(index).y));
             }
 
-        //    path.addCircle((int)(mapRatio*mListPoint1.get(index).x),(int)(mapRatio*mListPoint1.get(index).y),3, Path.Direction.CW);
+
         }
         path1.close();
         canvas.drawPath(path1, mPaint1);

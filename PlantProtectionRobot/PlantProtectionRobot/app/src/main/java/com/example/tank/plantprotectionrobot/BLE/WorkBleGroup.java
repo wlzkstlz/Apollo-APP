@@ -77,8 +77,9 @@ public class WorkBleGroup {
 
     }
 
-    public void addBleDevice(int id,BluetoothDevice device){
+    public boolean addBleDevice(int id,BluetoothDevice device){
 
+        boolean addFlag=false;
         String check="";
         //蓝牙名过滤
 
@@ -98,7 +99,6 @@ public class WorkBleGroup {
                 break;
         }
 
-
         String bleName = device.getName().toString();
         if (bleName.matches(check)) {
 
@@ -112,9 +112,11 @@ public class WorkBleGroup {
                 }
                 if (flag == false) {
                     findBleList.add(device);
+                    addFlag = true;
                 }
             } else {
                 findBleList.add(device);
+                addFlag = true;
             //    Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
                 Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
             }
@@ -124,6 +126,7 @@ public class WorkBleGroup {
          //   Log.d(TAG,"WorKBleGroup->蓝牙搜索名字匹配失败");
         }
 
+        return addFlag;
     }
 
     /***
@@ -187,12 +190,12 @@ public class WorkBleGroup {
         HeatDataMsg stateMsg = new HeatDataMsg();
 
         byte[] buf = characteristic.getValue();
-     //   Log.d(TAG,"接收到数据->"+Utils.bytesToHexString(buf));
+      //  Log.d(TAG,"接收到数据->"+Utils.bytesToHexString(buf));
 
         int sp = 1;
         stateMsg.robotId = buf[sp] | (buf[sp+1]<<8);
         sp=sp+2;
-        stateMsg.command = buf[sp];
+        stateMsg.revCommand = buf[sp];
         sp=sp+1;
         stateMsg.poseLongitude = getInt(buf,sp);
         sp=sp+4;
@@ -200,9 +203,12 @@ public class WorkBleGroup {
         sp=sp+4;
         stateMsg.posePhi = getShort(buf,sp);
         sp=sp+2;
-        stateMsg.tankLevel = buf[sp++];
-        stateMsg.batteryPercentage = buf[sp++];
-        stateMsg.curState = buf[sp++];
+        stateMsg.tankLevel = buf[sp];
+        sp=sp+1;
+        stateMsg.batteryPercentage = buf[sp];
+        sp=sp+1;
+        stateMsg.curState = buf[sp];
+        sp=sp+1;
         byte curBitsState =  buf[sp];
 
         stateMsg.rtkState = (byte) ((curBitsState>>2) & 0x03);

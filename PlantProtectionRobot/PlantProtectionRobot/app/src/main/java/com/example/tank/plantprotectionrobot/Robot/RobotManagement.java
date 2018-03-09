@@ -61,8 +61,6 @@ public class RobotManagement{
             public void askInCenterRobot() {
             //    Log.d(TAG,"RobotManagement->askAutoRobot()");
 
-
-
                     if (workBleGroup != null && workRobotList.size() > 0) {
 
                         for (int i = 0; i < workRobotList.size(); i++) {//判断是否有机器人掉线
@@ -93,7 +91,6 @@ public class RobotManagement{
 
             @Override
             public void askInWorkMapRobot(){
-
 
                     if (workBleGroup != null && workRobotList.size() > 0) {
 
@@ -126,8 +123,8 @@ public class RobotManagement{
 
             //装指令
             if(workRobotList.get(pollCount).inWorkPage == false) {
-                comBuf[0] = (byte) (workRobotList.get(pollCount).heatDataMsg.robotId);//机器人ID
-                comBuf[1] = (byte) (workRobotList.get(pollCount).heatDataMsg.robotId >> 8);
+                comBuf[0] = (byte) (workRobotList.get(pollCount).heatDataMsg.robotId>>8);//机器人ID
+                comBuf[1] = (byte) (workRobotList.get(pollCount).heatDataMsg.robotId);
                 comBuf[2] = workRobotList.get(pollCount).LORA_CH;                      //信道
                 comBuf[3] = 0x55;
                 comBuf[4] = workRobotList.get(pollCount).heatDataMsg.command;//指令
@@ -153,8 +150,8 @@ public class RobotManagement{
             if(workRobotList.get(i).inWorkPage == true){
 
                 //装指令
-                comBuf[0] = (byte)(workRobotList.get(i).heatDataMsg.robotId);
-                comBuf[1] = (byte)(workRobotList.get(i).heatDataMsg.robotId>>8);
+                comBuf[0] = (byte)(workRobotList.get(i).heatDataMsg.robotId>>8);
+                comBuf[1] = (byte)(workRobotList.get(i).heatDataMsg.robotId);
                 comBuf[2] =  workRobotList.get(i).LORA_CH;
                 comBuf[3] = 0x55;
                 comBuf[4] = workRobotList.get(i).heatDataMsg.command;//指令

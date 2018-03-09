@@ -4,6 +4,7 @@ import android.app.ProgressDialog;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.drawable.GradientDrawable;
@@ -47,6 +48,7 @@ public class ConnectActivity extends AppCompatActivity {
     private final int ROBOT_ADD_FAIL=20; //添加失败
     private final int ROBOT_NOMSG_BACK=0;//没有收到回复
     private final int BLE_CONNECT_ON = 30;
+    private final int BLE_SCAN_OFF=40;
 
     ArrayList<TankRobot> workRobotList;
 
@@ -63,8 +65,6 @@ public class ConnectActivity extends AppCompatActivity {
 
        initProgressDialog();//初始化进度条
 
-       progressDialog.setMessage("正在连接电台");
-       progressDialog.show();
        //开启蓝牙Service
        intentSev = new Intent(this, BLEService.class);
        connnetBtn.setOnClickListener(new View.OnClickListener() {
@@ -87,6 +87,33 @@ public class ConnectActivity extends AppCompatActivity {
                        new AlertDialog.Builder(ConnectActivity.this);
 
                switch (msg.what){
+                   case BLE_SCAN_OFF:
+                       progressDialog.cancel();
+                       msgDialog.setTitle("提示");
+                       msgDialog.setMessage("电台连接失败，是否继续搜索");
+                       msgDialog.setNegativeButton("是的",
+                               new DialogInterface.OnClickListener() {
+                                   @Override
+                                   public void onClick(DialogInterface dialog, int which) {
+                                       //...To-do
+                                      if(binder !=null){
+                                          binder.startScanBle();//搜索蓝牙
+                                          progressDialog.show();
+                                      }
+
+                                   }
+                               });
+                       msgDialog.setPositiveButton("退出",
+                               new DialogInterface.OnClickListener() {
+                                   @Override
+                                   public void onClick(DialogInterface dialog, int which) {
+                                       //...To-do
+                                      finish();
+
+                                   }
+                               });
+                       msgDialog.show();
+                       break;
                    case BLE_CONNECT_ON:
                  //      editText.setEnabled(true);
                        progressDialog.cancel();
@@ -217,13 +244,17 @@ public class ConnectActivity extends AppCompatActivity {
             // IBinder service为onBind方法返回的Service实例
             binder = (BLEService.BleBinder) service;
 
-            //绑定后执行动作
-            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,false);
-            binder.startScanBle();//搜索蓝牙
             workRobotList = binder.getRobotList();
 
-            if(workRobotList.size()>0){//不是第一次添加，蓝牙已经连接
+            //绑定后执行动作
+            binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,false);
+
+            if(binder.getBlestate(BLEService.BLE_HANDLE_CONECT)){ //不是第一次添加，蓝牙已经连接
                 mHandler.sendEmptyMessage(BLE_CONNECT_ON);
+            }else{
+                binder.startScanBle();//搜索蓝牙
+                progressDialog.setMessage("正在连接电台");
+                progressDialog.show();
             }
 
             binder.getService().setRobotWorkingCallback(new BLEService.RobotWorkingCallback() {
@@ -260,6 +291,9 @@ public class ConnectActivity extends AppCompatActivity {
                         case BLEService.BLE_CONNECT_ON:
                             mHandler.sendEmptyMessage(BLE_CONNECT_ON);
                             break;
+                        case BLEService.BLE_SCAN_OFF:
+                            mHandler.sendEmptyMessage(BLE_SCAN_OFF);
+                            break;
                     }
                 }
 
@@ -275,7 +309,8 @@ public class ConnectActivity extends AppCompatActivity {
                 @Override
                 public void BleConnectedDevice(BluetoothDevice connectedDevice) {
                    if(connectedDevice == null){
-                  //     binder.startScanBle();
+                      // binder.connectBle( connectedDevice,true);
+                       progressDialog.cancel();
                    }
 
                 }

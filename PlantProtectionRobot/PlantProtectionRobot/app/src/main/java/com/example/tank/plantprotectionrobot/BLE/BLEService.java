@@ -30,6 +30,7 @@ import com.example.tank.plantprotectionrobot.Robot.RobotManagement;
 import com.example.tank.plantprotectionrobot.Robot.TankRobot;
 import com.example.tank.plantprotectionrobot.Robot.WorkMatch;
 import com.example.tank.plantprotectionrobot.WaveFiltering.RobotCruisePath;
+import com.example.tank.plantprotectionrobot.WorkMapActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -140,6 +141,32 @@ public class BLEService extends Service {
         public int getIsWorkingId(){
             return workBleGroup.isWorkingId;
         }
+        public boolean getBlestate(int id){
+            switch(id){
+                case  BLE_MAP_CONECT:
+                    if(workBleGroup.isConnectGattCh == null &&  workBleGroup.bleMapCneted == null){
+                        return false;
+                    }
+                    break;
+                case BLE_HANDLE_CONECT:
+                    if(workBleGroup.isConnectGattCh == null &&  workBleGroup.bleHandleCneted == null){
+                        return false;
+                    }
+                    break;
+                case BLE_ROBOT_CONECT:
+                    if(workBleGroup.isConnectGattCh == null &&  workBleGroup.bleRobotCneted == null){
+                        return false;
+                    }
+                    break;
+                case BLE_BASIC_CONECT:
+                    if(workBleGroup.isConnectGattCh == null &&  workBleGroup.bleBasicCneted == null){
+                        return false;
+                    }
+                    break;
+
+            }
+            return true;
+        }
 
         /***
          * 开始传输路径文件
@@ -160,28 +187,29 @@ public class BLEService extends Service {
 
 
                     try {
-                        sleep(50); //延时
+                        sleep(20); //延时
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
 
                     Log.d(TAG,"长度="+robotCruisePath.mPathPoints.size()+"\n");
-                    for(int i=0;i<robotCruisePath.mPathPoints.size();i++){//PathPoint数据为20字节，一个蓝牙数据包
 
+                   for(int i=0;i<robotCruisePath.mPathPoints.size();i++){//PathPoint数据为20字节，一个蓝牙数据包
+              //      for(int i=0;i<6;i++){//PathPoint数据为20字节，一个蓝牙数据包
                         byte[] pbuf = robotCruisePath.PathPoitToArray(robotCruisePath.mPathPoints.get(i));
                      //   Log.d(TAG,"BLEService->传输路径文件长度："+pbuf.length);
                //         Log.d(TAG,Utils.bytesToHexString(pbuf)+"\n");
                         workBleGroup.sendCommand(pbuf);
 
                         try {
-                            sleep(50); //延时
+                            sleep(20); //延时
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
                     }
 
                     try {
-                        sleep(60); //延时
+                        sleep(20); //延时
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -237,15 +265,16 @@ public class BLEService extends Service {
             robotManagement.workRobotList.add(workRobot);
             robotManagement.pollCount = robotManagement.workRobotList.size()-1;//
             //----------测试---------//
-            if(robotManagement.workRobotList.size() >=2 ){
-                robotManagement.workRobotList.get(robotManagement.workRobotList.size()-2).workAuto = TankRobot.CTR_AUTO;
-            }
+         //   if(robotManagement.workRobotList.size() >=2 ){
+           //     robotManagement.workRobotList.get(robotManagement.workRobotList.size()-2).workAuto = TankRobot.CTR_AUTO;
+        //    }
         }
         /***
          *
          * @param type 1连接测绘蓝牙，2连接手柄蓝牙，3连接算法板蓝牙 4连接基站蓝牙
          */
         public void setBleWorkTpye(int type,boolean newPage){
+
             if(newPage == true) {
                 mappingCallback = null;
                 robotWorkingCallback = null;
@@ -256,14 +285,9 @@ public class BLEService extends Service {
             if(type != workBleGroup.isWorkingId){
                 mBLE.disconnect();
                 mBLE.close();
-                /*
-                workBleGroup.isConnectGattCh = null;
-                workBleGroup.bleHandleCneted=null;
-                workBleGroup.bleRobotCneted=null;
-                workBleGroup.bleMapCneted=null;
-                workBleGroup.bleBasicCneted=null;
-                */
                 Log.d(TAG," Bleservice->断开连接");
+                workBleGroup.isConnectGattCh = null;
+           //     robotManagement.workBleGroup.isConnectGattCh = null;
             }
             //重新连接时，先清除之前的回调函数
             workBleGroup.isWorkingId = type;
@@ -295,13 +319,12 @@ public class BLEService extends Service {
             if(mBLE !=null) {
                 mBLE.disconnect();
                 mBLE.close();
-                workBleGroup.isWorkingId = 0;
-
+                workBleGroup.bleHandleCneted = null;
                 workBleGroup.isConnectGattCh = null;
-                workBleGroup.bleHandleCneted=null;
-                workBleGroup.bleRobotCneted=null;
-                workBleGroup.bleMapCneted=null;
-                workBleGroup.bleBasicCneted=null;
+           //     robotManagement.workBleGroup.isConnectGattCh = null;
+
+            //    mappingCallback = null;
+            //    robotWorkingCallback = null;
             }
         }
         //开始连接蓝牙
@@ -312,8 +335,10 @@ public class BLEService extends Service {
          * @return
          */
         public boolean connectBle(BluetoothDevice bluetoothDevice,boolean connetType){
+
             if(mBluetoothAdapter !=null) {
                 if ( connetType == false) {
+
                     if (mBluetoothAdapter.checkBluetoothAddress(bluetoothDevice.getAddress())) {
 
                         mBLE.connect(bluetoothDevice.getAddress());
@@ -357,6 +382,9 @@ public class BLEService extends Service {
                         Log.d(TAG, "接收蓝牙连接指令连接蓝牙");
                     }
                     */
+                    if(mBluetoothAdapter !=null) {
+                        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                    }
                     switch (workBleGroup.isWorkingId) {
                         case BLE_HANDLE_CONECT:
                             mBLE.connect(workBleGroup.bleHandleCneted.getAddress());
@@ -418,7 +446,7 @@ public class BLEService extends Service {
 
                     }
 
-                    /*
+/*
                     a +=0.000001;
                     MappingGroup rtkMap = new MappingGroup();
                     rtkMap.longitude = (int)(((113.8837062+a)*MappingGroup.PI/180) *MappingGroup.INM_LON_LAT_SCALE);
@@ -460,7 +488,7 @@ public class BLEService extends Service {
     @Override
     public void onDestroy() {
         serviceRunning = false;
-      Log.d(TAG,"--onDestroy()--");
+      Log.d(TAG,"BLEService--onDestroy()--");
         super.onDestroy();
     }
 /**********************************作业时回调start*******************************************/
@@ -567,8 +595,9 @@ public RobotWorkingCallback getRobotWorkingCallback(){
                 public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
 
                     //      addScanLeDevice(device);
-                    workBleGroup.addBleDevice(workBleGroup.isWorkingId,device);
-                    if(workBleGroup.findBleList.size()>0){
+                   boolean flag = workBleGroup.addBleDevice(workBleGroup.isWorkingId,device);
+
+                    if(workBleGroup.findBleList.size() > 0 && flag == true){
                         msgWhat = BLE_SCAN_ON;
                   //      Log.d(TAG,"BleService->添加蓝牙"+workBleGroup.findBleList.get(0).getName().toString());
 
@@ -730,52 +759,98 @@ public RobotWorkingCallback getRobotWorkingCallback(){
             if(heatDataMsg.robotId == robotManagement.workRobotList.get(i).heatDataMsg.robotId){
 
                 robotManagement.workRobotList.get(i).checkCount = 0;//掉线检测清零
+                //获取任务进度
+                robotManagement.workRobotList.get(i).workMatch.index  = getTaskScheduleIndex(heatDataMsg);
 
                 //-------------在这里处理返回指令---------//
-                //-----------------------------------------//
-                //机器人可能重新装载啦新指令，所以不能覆盖新指令
-                if(heatDataMsg.command  != robotManagement.workRobotList.get(i).heatDataMsg.command){
-                    heatDataMsg.command = robotManagement.workRobotList.get(i).heatDataMsg.command;
-                }else{
-                    //---------------------------//
+                //装载最新指令
+                 heatDataMsg.command = robotManagement.workRobotList.get(i).heatDataMsg.command;
 
-                    //非心跳指令执行成功返回
-                    if(robotWorkingCallback !=null && heatDataMsg.command != CommondType.CMD_HEARTBEAT){
-                        robotWorkingCallback.ComdReturnChange(heatDataMsg);
-                    }
+                 if(heatDataMsg.revCommand == heatDataMsg.command) {
+                     //非心跳指令执行成功返回
+                     if(robotWorkingCallback !=null && heatDataMsg.revCommand != CommondType.CMD_HEARTBEAT){
+                         robotWorkingCallback.ComdReturnChange(heatDataMsg);
+                     }
 
-                    //---------------------------//
-                   heatDataMsg.command = CommondType.CMD_HEARTBEAT;//指令执行成功后转为心跳
-                }
+                     heatDataMsg.command = CommondType.CMD_HEARTBEAT;
+                 }
+
                 robotManagement.workRobotList.get(i).heatDataMsg = heatDataMsg;//更新信息
                 robotManagement.workRobotList.get(i).robotOnline = true;
-           //     Log.d(TAG,"BLEService->"+robotManagement.workRobotList.get(i).workAuto);
-//
-                //返回值更新控制方式
+                robotManagement.workRobotList.get(i).workAuto = heatDataMsg.curState;
 
-                switch (heatDataMsg.curState){
-                    case TankRobot.CTR_AUTO:
-                        robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_AUTO;
-                        break;
-                    case TankRobot.CTR_HANLDE:
-                        robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_HANLDE;
-                        break;
-                    case TankRobot.CTR_HANDLE_TURN:
-                        robotManagement.workRobotList.get(i).workAuto = TankRobot.CTR_HANDLE_TURN;
-                        break;
-
-                }
-
-                pollingManagement.onPollingNext();//收到返回进入下一组轮询
                 //返回数据
                 if(robotWorkingCallback !=null){
                     robotWorkingCallback.RobotStateChanged(robotManagement.workRobotList.get(i));
                 }
+                pollingManagement.onPollingNext();//收到返回进入下一组轮询
+
 
                 break;
             }
         }
     }
+
+    /***
+     *
+     * @return 相对基站的坐标
+     */
+    private  PointF getPositionFromBasicStation(HeatDataMsg msg,RobotCruisePath path){
+        PointF p = new PointF();
+
+        p .x = (float) ((((double)msg.poseLongitude /MappingGroup.INM_LON_LAT_SCALE -path.bPoint.x)*180/MappingGroup.PI)* Math.cos(msg.poseLatitude/MappingGroup.INM_LON_LAT_SCALE)* WorkMapActivity.GPS_DIS);
+        p .y = (float) ((((double)msg.poseLatitude / MappingGroup.INM_LON_LAT_SCALE - path.bPoint.y)*180/MappingGroup.PI)*WorkMapActivity.GPS_DIS);
+
+        return p;
+    }
+
+    /***
+     * 获取任务进度百分比
+     * @param heatDataMsg
+     * @return 任务进度
+     */
+    private int getTaskScheduleIndex(HeatDataMsg heatDataMsg){
+        int index = 0;
+
+        for (int i=0;i<robotManagement.workRobotList.size();i++){
+
+            if(heatDataMsg.robotId == robotManagement.workRobotList.get(i).heatDataMsg.robotId) {
+
+                TankRobot robot = robotManagement.workRobotList.get(i);
+
+                if(robot.workMatch.matchPath !=null && robot.workMatch.isMatch == true) {
+                    //获取与基站的距离
+                    PointF gpsPointF = getPositionFromBasicStation(heatDataMsg, robot.workMatch.matchPath);
+
+                    if (robot.workMatch.isMatch == true && robot.workMatch.matchPath != null && robot.workMatch.matchPath.mPoints != null) {
+                        if (robot.workMatch.index > 2 && robot.workMatch.matchPath.mPoints.size() > 2) {
+
+                            for (int k = robot.workMatch.index - 2; k < robot.workMatch.matchPath.mPoints.size(); k++) {
+
+                                if (Math.abs(gpsPointF.x - robot.workMatch.matchPath.mPoints.get(k).x) < WorkMapActivity.NEAR_DIS
+                                        && Math.abs(gpsPointF.y - robot.workMatch.matchPath.mPoints.get(k).y) < WorkMapActivity.NEAR_DIS) {
+                                    index = k;
+                                }
+                            }
+                        } else {
+                            for (int k = 0; k < robot.workMatch.matchPath.mPoints.size(); k++) {
+
+                                if (Math.abs(gpsPointF.x - robot.workMatch.matchPath.mPoints.get(k).x) < WorkMapActivity.NEAR_DIS
+                                        && Math.abs(gpsPointF.y - robot.workMatch.matchPath.mPoints.get(k).y) < WorkMapActivity.NEAR_DIS) {
+                                    index = k;
+                                }
+                            }
+                        }
+                    }
+                }else{
+                    index=-1;
+                }
+            }
+        }
+     return index;
+
+    }
+
 
     //连接串口服务器
     private void displayGattServices(List<BluetoothGattService> gattServices) {
