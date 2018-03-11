@@ -110,7 +110,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
     private  int mapRatioZoom;            //地图缩放等级
     private final int MAPRATIO_MIN=1;
     private final int MAPRATIO_MAX = 9;//地图放大有10个等级
-    private final int MAPRATIOZOOM_DEFAULT=1;
+    private final int MAPRATIOZOOM_DEFAULT=5;
 
     private final int TANKLEVEL_MIN=5;
     private final int BATTERY_MIN =10;
@@ -175,7 +175,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         startBtn = (Button)findViewById(R.id.button2);
         spinner1=(MySpinner) findViewById(R.id.spinner1);
 
-     //   startBtn.setVisibility(View.INVISIBLE);
+   //     startBtn.setVisibility(View.VISIBLE);
         startBtn.getBackground().setAlpha(125);
   //      startBtn.setEnabled(false);
 
@@ -223,6 +223,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                     case BLE_DATA_ON:
 
                         translateChangeMsg();
+
                         updateData(true);
 
                         if(changeComd == false) {
@@ -233,19 +234,25 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             changeComd =false;
                         }
                         //判断匹配路径
-                        for (int i = 0; i < workRobotList.size(); i++) {
+                        if(satrtTransfeRoute == true) {
+                            for (int i = 0; i < workRobotList.size(); i++) {
 
-                            if (workRobotList.get(i).heatDataMsg.robotId == isSelectRobotId) {
-                                if(workRobotList.get(i).heatDataMsg.taskFile == true) {
-                                    if (vibrationAndMusic.getVibrate()) {
-                                        vibrationAndMusic.stopVibration();
+                                if (workRobotList.get(i).heatDataMsg.robotId == isSelectRobotId) {
+                                    if (workRobotList.get(i).heatDataMsg.taskFile == true) {
+                                        //关闭手机震动
+                                        if (vibrationAndMusic.getVibrate()) {
+                                            vibrationAndMusic.stopVibration();
+                                        }
+
+                                        workRobotList.get(i).workMatch.isMatch = true;
+                                        satrtTransfeRoute = false;//结束传输标志
+                                        startBtn.setVisibility(View.INVISIBLE);
+
+                                    } else {
+                                        workRobotList.get(i).workMatch.isMatch = false;
                                     }
-                                    workRobotList.get(i).workMatch.isMatch=true;
-                                    startBtn.setVisibility(View.INVISIBLE);
-                                }else{
-                                    workRobotList.get(i).workMatch.isMatch=false;
-                                }
 
+                                }
                             }
                         }
 
@@ -313,6 +320,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                     case COMD_BLE_END_OFF:
 
                         progressDialog.cancel();
+                        satrtTransfeRoute = false;
 
                         msgDialog.setTitle("提示");
                         msgDialog.setMessage("文件传输失败");
@@ -387,7 +395,6 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                                 }
 
-                                satrtTransfeRoute =false;
                             }
                         }
 
@@ -412,8 +419,10 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 PointF gpsPiotF = getPositionFromBasicStation();
                 if (robotCruisePaths.size() > 0) {
                     robotPosition = getPositionFromScreen(gpsPiotF);
+                    robotPosition.d = ((double) isWorkRobot.heatDataMsg.posePhi/1000)*180/MappingGroup.PI;
                 }
 
+                Log.d(TAG,"接收到数据->角度"+robotPosition.d);
 
                 if (satrtTransfeRoute == false && isWorkRobot.workMatch.isMatch == false) {
                     //匹配起点
@@ -430,12 +439,11 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                             matchRouteId = k;
 
-                            robotMsgText.setText("匹配成功");
+                     //       robotMsgText.setText("匹配成功");
                             //手机振动
                             if (vibrationAndMusic.getVibrate() == false) {
                                 vibrationAndMusic.Vibrate(new long[]{500, 1000, 500, 1000}, true);
                             }
-
 
                             break;
                         } else {
@@ -448,7 +456,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             startBtn.setEnabled(false);
                             startBtn.setVisibility(View.INVISIBLE);
                             //     startBtn.setBackgroundColor(getResources().getColor(R.color.colorGray));
-                            robotMsgText.setText("匹配起点");
+                   //         robotMsgText.setText("匹配起点");
                         }
                     }
                 }
@@ -479,7 +487,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         p.x = screenPoint.x / 2 +  pointF .x*(screenPoint.x/ MAPMAX_DIS);
         p.y = screenPoint.y / 2 - pointF .y* (screenPoint.y/ MAPMAX_DIS);  //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
 
-        p.d = isWorkRobot.heatDataMsg.posePhi;
+
 
         return p;
     }
@@ -518,12 +526,12 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                 }else{
 
-                    if( matchRouteId>0){
+                    if( matchRouteId>=0){
                         backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorRed));
-                        state = "匹配起点";
+                        state = "匹配成功";
                     }else{
                         backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.tankgreen));
-                        state = "匹配成功";
+                        state = "匹配起点";
                     }
                 }
 
@@ -566,6 +574,10 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                 if (isWorkRobot.heatDataMsg.dAlarm == true) {
                     state += "|救援";
                     backgroundAlarm.setBackgroundColor(getResources().getColor(R.color.colorRed));
+                }
+
+                if(isWorkRobot.heatDataMsg.rtkState == 1){
+                    state += "|搜星";
                 }
 
                 robotMsgText.setText(state);
@@ -1031,8 +1043,8 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                    RobotCruisePath robotCruisePath = new RobotCruisePath();
                                    robotCruisePath.Open(files[k].getName(),filedir);
 
-                                   basicPosition.x=screenPoint.x / 2+robotCruisePath.bPoint.x;
-                                   basicPosition.y=screenPoint.y / 2+robotCruisePath.bPoint.y;
+                                   basicPosition.x=screenPoint.x / 2;
+                                   basicPosition.y=screenPoint.y / 2;
                                    //当前默认只有一个主干道
                                    //   Log.d(TAG, files[0].getName() +" 帧长："+len[0]+" 基站坐标："+bpoint.x+" "+bpoint.y+ "测绘点个数："+ gpslist.size()+"\n");
 

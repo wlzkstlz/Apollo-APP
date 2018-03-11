@@ -151,7 +151,7 @@ public class WorkBleGroup {
             if (CRC16_ccitTable.CRC16_ccitt(bleBuf)) {//CRC校验
 
                 //转化成数据流转GPS数据
-                int sp = 2;
+                int sp = 1;
                 rtkMap.rtkState = bleBuf[sp];   //RTK状态
                 sp = sp + 1;
                 rtkMap.longitude = getInt(bleBuf, sp); //经度
@@ -164,7 +164,7 @@ public class WorkBleGroup {
                 sp = sp + 4;
                 rtkMap.pitch = getFloat(bleBuf, sp); //IMU
                 sp = sp + 4;
-                rtkMap.yaw = getFloat(bleBuf, sp); //方向
+                rtkMap.yaw = (float) (getFloat(bleBuf, sp)*180/MappingGroup.PI); //方向
                 sp = sp + 4;
                 rtkMap.GPSTime_weeks = getShort(bleBuf, sp); //周
                 sp = sp + 2;
@@ -190,7 +190,7 @@ public class WorkBleGroup {
         HeatDataMsg stateMsg = new HeatDataMsg();
 
         byte[] buf = characteristic.getValue();
-      //  Log.d(TAG,"接收到数据->"+Utils.bytesToHexString(buf));
+     //   Log.d(TAG,"接收到数据->"+Utils.bytesToHexString(buf));
 
         int sp = 1;
         stateMsg.robotId = buf[sp] | (buf[sp+1]<<8);
@@ -212,6 +212,8 @@ public class WorkBleGroup {
         byte curBitsState =  buf[sp];
 
         stateMsg.rtkState = (byte) ((curBitsState>>2) & 0x03);
+
+
         //有无基站GPS
         if((curBitsState & 0x10) == 0x10) {
             stateMsg.basicGps = true;

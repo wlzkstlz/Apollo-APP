@@ -782,7 +782,7 @@ public class NewMapActivity extends AppCompatActivity implements View.OnTouchLis
                 //       Log.d(TAG,"RTK状态："+rtkMap.rtkState+"时间："+rtkMap.GPSTime_ms+"经度："+rtkMap.longitude*180/MappingGroup.PI
                 //               +"纬度："+rtkMap.latitude*180/MappingGroup.PI+"海拔："+rtkMap.altitude+"方向：\n"+rtkMap.yaw);
 
-                    if(rtkMap.rtkState == 1) {//等于1才是FIX数据
+                    if(rtkMap.rtkState == 0) {//等于0才是FIX数据
 
                         moveCenterBtn.setBackground(getResources().getDrawable(R.drawable.position));
 

@@ -169,7 +169,7 @@ public class MapView extends View {
             canvas.drawBitmap(bMap1, matrix, new Paint());
 
             matrix.reset();
-           matrix.postRotate((float) Lcon2.d,(int)(bMap2.getWidth()/2),(int)(bMap2.getHeight()/2));
+           matrix.postRotate((float) -Lcon2.d,(bMap2.getWidth()/2),(bMap2.getHeight()/2));
             matrix.postTranslate((int)(mapRatio*Lcon2.x-bMap2.getWidth()/2),(int)(mapRatio*Lcon2.y-bMap2.getHeight()/2));
             canvas.drawBitmap(bMap2, matrix, new Paint());
 

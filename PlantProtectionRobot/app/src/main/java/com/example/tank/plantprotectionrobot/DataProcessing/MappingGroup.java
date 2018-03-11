@@ -26,7 +26,7 @@ import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileToo
 public class MappingGroup {
 
        //测绘信息
-        public   byte rtkState;   //RTK_SINGLE=0,RTK_FLOAT=1,RTK_FIX=2,
+        public   byte rtkState;   //0 FIX
         public   int longitude;//弧度制，毫弧
         public   int latitude;//角度制
         public   float altitude;//单位米

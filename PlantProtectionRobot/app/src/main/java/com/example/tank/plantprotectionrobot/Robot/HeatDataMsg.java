@@ -11,7 +11,7 @@ public class HeatDataMsg {
     public  byte revCommand;//接收到的指令
     public  int poseLongitude;//相对于基站距离x
     public  int  poseLatitude;//相对于基站距离x
-    public  short  posePhi;//海拔
+    public  short  posePhi;//航向角
     public  byte  tankLevel;//水量250 0.5米
     public  byte  batteryPercentage;//百分比0-100%
     public  byte  curState; //状态

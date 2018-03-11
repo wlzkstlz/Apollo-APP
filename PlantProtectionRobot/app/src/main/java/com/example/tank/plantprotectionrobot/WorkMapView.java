@@ -203,6 +203,7 @@ public class WorkMapView extends View {
         //机器人图标
         if(robotPosition !=null) {
             matrix.reset();
+            matrix.postRotate((float) -robotPosition.d,(bRobotLog.getWidth()/2),(bRobotLog.getHeight()/2));
             matrix.postTranslate((int) (mapRatio * robotPosition.x - bRobotLog.getWidth() / 2), (int) (mapRatio * robotPosition.y - bRobotLog.getHeight() / 2));
             canvas.drawBitmap(bRobotLog, matrix, new Paint());
         }
