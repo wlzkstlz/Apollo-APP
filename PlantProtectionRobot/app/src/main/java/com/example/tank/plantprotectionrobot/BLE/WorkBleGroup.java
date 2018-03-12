@@ -82,7 +82,7 @@ public class WorkBleGroup {
         boolean addFlag=false;
         String check="";
         //蓝牙名过滤
-
+//        Log.i(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
         switch(id){
             case  BLEService.BLE_BASIC_CONECT:
                 check = "[B]\\d{5}";
@@ -118,7 +118,7 @@ public class WorkBleGroup {
                 findBleList.add(device);
                 addFlag = true;
             //    Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
-                Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
+                Log.i(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
             }
 
 

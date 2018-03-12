@@ -323,7 +323,7 @@ public class BLEService extends Service {
                 workBleGroup.isConnectGattCh = null;
            //     robotManagement.workBleGroup.isConnectGattCh = null;
 
-            //    mappingCallback = null;
+                mappingCallback = null;
             //    robotWorkingCallback = null;
             }
         }
@@ -607,14 +607,14 @@ public RobotWorkingCallback getRobotWorkingCallback(){
                             mBleList.addAll(workBleGroup.findBleList.subList(0, workBleGroup.findBleList.size()));
                             if (mappingCallback != null) {
                                 mappingCallback.BleScanChanged(mBleList);
-                                Log.d(TAG,"BleService-> mappingCallback->返回搜索到的蓝牙"+workBleGroup.findBleList.get(0).getName().toString());
+                                Log.i(TAG,"BleService-> mappingCallback->返回搜索到的蓝牙"+workBleGroup.findBleList.get(0).getName().toString());
 
                             }
                             //       Log.d(TAG, "扫描到设备" + mBleDeviceList.get(mBleDeviceList.size()-1).getName().toString()+" ID"+
                             //               mBleDeviceList.get(mBleDeviceList.size()-1).getAddress().toString() +"->"+ mBleDeviceList.size());
                             if (robotWorkingCallback != null) {
                                 robotWorkingCallback.BleScanChanged(mBleList);
-                                Log.d(TAG,"BleService->robotWorkingCallback->返回搜索到的蓝牙"+workBleGroup.findBleList.get(0).getName().toString());
+                                Log.i(TAG,"BleService->robotWorkingCallback->返回搜索到的蓝牙"+workBleGroup.findBleList.get(0).getName().toString());
 
                             }
 

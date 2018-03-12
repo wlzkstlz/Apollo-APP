@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import static android.os.SystemClock.sleep;
 import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.getMappingData;
 import static com.example.tank.plantprotectionrobot.DataProcessing.MappingGroup.getMappingHead;
 import static com.example.tank.plantprotectionrobot.DataProcessing.SDCardFileTool.getMappingList;
@@ -250,6 +251,11 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                                     } else {
                                         workRobotList.get(i).workMatch.isMatch = false;
+                                        //进入传输后，如果不在传输状态或是自动驾驶状态，结束传输
+                                        if(isWorkRobot.heatDataMsg.curState != TankRobot.PILOT_STATE_AUTO &&
+                                                isWorkRobot.heatDataMsg.curState != TankRobot.PILOT_STATE_BLE_TRANSFER){
+                                            satrtTransfeRoute = false;//结束传输标志
+                                        }
                                     }
 
                                 }
@@ -266,6 +272,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                         progressDialog.cancel();
                         sendFailConnectHandle = true;
                         robotBleConnectAgain = false;
+                        satrtTransfeRoute =false;
 
                         msgDialog.setTitle("提示");
                         msgDialog.setMessage("文件传输失败");
@@ -285,12 +292,13 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                         }
 
-                        satrtTransfeRoute =false;
+
 
                         //连接失败返回到遥控器蓝牙
                         if(binder != null){
                             if(binder.getIsWorkingId() != BLEService.BLE_HANDLE_CONECT) {
                                 binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,false);
+                                sleep(400); //延时
                                 binder.startScanBle();
                             }
                         }
@@ -311,6 +319,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                         if(binder !=null) {
                             binder.setBleWorkTpye(BLEService.BLE_ROBOT_CONECT,false);
+                            sleep(400); //延时
                             binder.startScanBle();
                             robotBleConnectAgain = true;
                             Log.d(TAG,"WorkMapAvtivity->超时开始发送文件");
@@ -422,7 +431,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                     robotPosition.d = ((double) isWorkRobot.heatDataMsg.posePhi/1000)*180/MappingGroup.PI;
                 }
 
-                Log.d(TAG,"接收到数据->角度"+robotPosition.d);
+           //     Log.d(TAG,"接收到数据->角度"+robotPosition.d);
 
                 if (satrtTransfeRoute == false && isWorkRobot.workMatch.isMatch == false) {
                     //匹配起点
@@ -454,7 +463,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                 vibrationAndMusic.stopVibration();
                             }
                             startBtn.setEnabled(false);
-                            startBtn.setVisibility(View.INVISIBLE);
+                     //       startBtn.setVisibility(View.INVISIBLE);
                             //     startBtn.setBackgroundColor(getResources().getColor(R.color.colorGray));
                    //         robotMsgText.setText("匹配起点");
                         }
@@ -486,8 +495,6 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         GpsPoint p = new GpsPoint();
         p.x = screenPoint.x / 2 +  pointF .x*(screenPoint.x/ MAPMAX_DIS);
         p.y = screenPoint.y / 2 - pointF .y* (screenPoint.y/ MAPMAX_DIS);  //将坐标系转为与地图一样（手机屏幕坐标沿x轴对称）
-
-
 
         return p;
     }
@@ -604,11 +611,12 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
         workMapView.setRobotAndPersonPosition(robotPosition,personPosition, movePoint,mapRatio);
 
         if(isWorkRobot.workMatch.isMatch == true) {//绘制正在作业路径
-      //      workMapView.drawWorkRoute(isWorkRobot.workMatch.matchScreenRoute, routeList_M, isWorkRobot.workMatch.index);
+       //     workMapView.drawWorkRoute(isWorkRobot.workMatch.matchScreenRoute, routeList_M, isWorkRobot.workMatch.index);
+            workMapView.drawWorkRoute(isWorkRobot.workMatch.matchScreenRoute, routeList_M, 0);
         }else{//绘制匹配模式下所有路径
-     //       workMapView.drawMatchRoute(routeList_L, routeList_M, matchFlagList);
+            workMapView.drawMatchRoute(routeList_L, routeList_M, matchFlagList);
         }
-        workMapView.drawMatchRoute(routeList_L, routeList_M, matchFlagList);
+      //  workMapView.drawMatchRoute(routeList_L, routeList_M, matchFlagList);
       //  Log.d(TAG,"画地图\n");
     }
     private void setOnClick() {
@@ -1053,8 +1061,9 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                                    for (int j = 0; j < robotCruisePath.mPoints.size(); j++) {
                                        GpsPoint point=new GpsPoint();
                                        //转化为画布坐标
-                                       point.x = screenPoint.x / 2 + robotCruisePath.mPoints.get(j).x * (screenPoint.x/ MAPMAX_DIS);
-                                       point.y = screenPoint.y / 2 - robotCruisePath.mPoints.get(j).y * (screenPoint.y/ MAPMAX_DIS);
+                                     //  point.x = screenPoint.x / 2 + robotCruisePath.mPoints.get(j).x * (screenPoint.x/ MAPMAX_DIS);
+                                     //  point.y = screenPoint.y / 2 - robotCruisePath.mPoints.get(j).y * (screenPoint.y/ MAPMAX_DIS);
+                                       point = getPositionFromScreen( robotCruisePath.mPoints.get(j));
                                        pointList.add(point);
                                  //      Log.d(TAG,"测绘数据：X="+robotCruisePath.mPoints.get(j).x +"Y="+robotCruisePath.mPoints.get(j).y+"\n");
                                    }
@@ -1160,9 +1169,9 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             if(binder.getIsWorkingId() == BLEService.BLE_ROBOT_CONECT) {
                                 handler.sendEmptyMessage(SEND_ROUTE_DATA_FAIL);
 
-                                Log.d(TAG,"BLEService.BLE_ROBOT_CONECT->没有搜索到蓝牙");
+                                Log.i(TAG,"BLEService.BLE_ROBOT_CONECT->没有搜索到蓝牙");
                             }else{
-                                Log.d(TAG,"BLEService.BLE_HANDLE_CONECT->没有搜索到蓝牙");
+                                Log.i(TAG,"BLEService.BLE_HANDLE_CONECT->没有搜索到蓝牙");
                                 binder.startScanBle();//继续搜索
                             }
                             break;
@@ -1188,6 +1197,8 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             handler.sendEmptyMessage(SEND_ROUTE_END);//发送文件结束
                             if(binder !=null) {//数据发送完 转为连接遥控器蓝牙
                               binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,false);
+
+                              sleep(400); //延时
                               binder.startScanBle();
                                 Log.d(TAG,"WorkMapActivity->发送文件结束");
                             }
@@ -1229,6 +1240,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             handler.removeMessages(COMD_BLE_START_OFF);//正常，取消超时
                             binder.setBleWorkTpye(BLEService.BLE_ROBOT_CONECT,false);
                             robotBleConnectAgain = true;
+                            sleep(400); //延时
                             binder.startScanBle();
                             handler.sendEmptyMessageDelayed(SEND_ROUTE_DATA_FAIL,10*60*1000);
                             Log.d(TAG,"WorkMapActivity->接收指令CommondType.CMD_BLE_START开始发送文件");

@@ -150,6 +150,12 @@ public class WorkMapView extends View {
         //绘制正在作业的路径
         if(workRobotRoute !=null && indexFlag>0){
             Path path = new Path();
+
+            if(workRobotRoute.size()>0){
+                String str = ("0%");
+                canvas.drawText(str,(float) workRobotRoute.get(indexFlag).x,(float)workRobotRoute.get(indexFlag).y,grayPaint);//显示进度
+            }
+
             //绘制正在作业已完成的部分
             for (int i = 0; i<indexFlag; i++) {
 
@@ -185,10 +191,23 @@ public class WorkMapView extends View {
             }
             canvas.drawPath(path1, greenPaint);
         }else if(indexFlag == 0 && workRobotRoute !=null){
-            if(workRobotRoute.size()>0){
-                String str = ("0%");
-                canvas.drawText(str,(float) workRobotRoute.get(indexFlag).x,(float)workRobotRoute.get(indexFlag).y,grayPaint);//显示进度
+
+            Path path = new Path();
+            //绘制正在作业已完成的部分
+            for (int i = 0; i< workRobotRoute.size(); i++) {
+
+                if (i == 0) {
+                    path.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
+                } else if (i == workRobotRoute.size() - 1) {
+                    path.moveTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
+                } else {
+                    path.lineTo((int) (mapRatio * workRobotRoute.get(i).x), (int) (mapRatio * workRobotRoute.get(i).y));
+                }
+
             }
+
+            path.close();
+            canvas.drawPath(path, greenPaint);
 
         }
 
