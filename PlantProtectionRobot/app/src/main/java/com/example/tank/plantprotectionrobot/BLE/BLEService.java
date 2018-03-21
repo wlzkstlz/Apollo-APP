@@ -747,6 +747,11 @@ public RobotWorkingCallback getRobotWorkingCallback(){
            // readInPutBytes(characteristic);
 
         }
+       //读写完成回调
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+
+        }
     };
 
     /***

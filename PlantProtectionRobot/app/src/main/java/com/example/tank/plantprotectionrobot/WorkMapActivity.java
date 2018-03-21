@@ -298,7 +298,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                         if(binder != null){
                             if(binder.getIsWorkingId() != BLEService.BLE_HANDLE_CONECT) {
                                 binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,false);
-                                sleep(400); //延时
+                                sleep(1000); //延时
                                 binder.startScanBle();
                             }
                         }
@@ -319,7 +319,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                         if(binder !=null) {
                             binder.setBleWorkTpye(BLEService.BLE_ROBOT_CONECT,false);
-                            sleep(400); //延时
+                            sleep(1000); //延时
                             binder.startScanBle();
                             robotBleConnectAgain = true;
                             Log.d(TAG,"WorkMapAvtivity->超时开始发送文件");
@@ -458,11 +458,18 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                         } else {
                             matchRouteId = -1;
 
+
+                            //调试-------//
+                       //     matchRouteId = 0;
+                       //     startBtn.setEnabled(true);
+                       //     startBtn.setVisibility(View.VISIBLE);
+                            //---------//
+
                             //取消手机振动
                             if (vibrationAndMusic.getVibrate()) {
                                 vibrationAndMusic.stopVibration();
                             }
-                            startBtn.setEnabled(false);
+                           startBtn.setEnabled(false);
                      //       startBtn.setVisibility(View.INVISIBLE);
                             //     startBtn.setBackgroundColor(getResources().getColor(R.color.colorGray));
                    //         robotMsgText.setText("匹配起点");
@@ -1198,7 +1205,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             if(binder !=null) {//数据发送完 转为连接遥控器蓝牙
                               binder.setBleWorkTpye(BLEService.BLE_HANDLE_CONECT,false);
 
-                              sleep(400); //延时
+                              sleep(1000); //延时
                               binder.startScanBle();
                                 Log.d(TAG,"WorkMapActivity->发送文件结束");
                             }
@@ -1240,7 +1247,7 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
                             handler.removeMessages(COMD_BLE_START_OFF);//正常，取消超时
                             binder.setBleWorkTpye(BLEService.BLE_ROBOT_CONECT,false);
                             robotBleConnectAgain = true;
-                            sleep(400); //延时
+                            sleep(1000); //延时
                             binder.startScanBle();
                             handler.sendEmptyMessageDelayed(SEND_ROUTE_DATA_FAIL,10*60*1000);
                             Log.d(TAG,"WorkMapActivity->接收指令CommondType.CMD_BLE_START开始发送文件");
@@ -1353,11 +1360,11 @@ public class WorkMapActivity extends AppCompatActivity implements View.OnTouchLi
 
                     String str="";
                     str += aMapLocation.getLatitude();//获取纬度
-                    str +="\n";
+                    str +=" ";
                     str +=aMapLocation.getLongitude();//获取经度
                     str +="\n";
 
-                    Log.d(TAG,str);
+                    Log.d(TAG,"高得地图经纬度="+str);
                     //坐标转换
                     if(robotCruisePaths.size()>0) {
                         personPosition.x = screenPoint.x / 2 + ((aMapLocation.getLongitude() * 180 / MappingGroup.PI) * Math.cos(aMapLocation.getLatitude()) - robotCruisePaths.get(0).bPoint.x * Math.cos(robotCruisePaths.get(0).bPoint.y * Math.PI / 180)) * (screenPoint.x * GPS_DIS / MAPMAX_DIS);

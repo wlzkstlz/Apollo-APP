@@ -41,6 +41,8 @@ public class BluetoothLeClass {
                                          int status);
         public void onCharacteristicRevice(BluetoothGatt gatt,
                                            BluetoothGattCharacteristic characteristic);
+
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status);
     }
 
     private OnConnectListener mOnConnectListener;
@@ -99,15 +101,26 @@ public class BluetoothLeClass {
         public void onCharacteristicRead(BluetoothGatt gatt,
                                          BluetoothGattCharacteristic characteristic,
                                          int status) {
-            if (mOnDataAvailableListener!=null)
+            if (mOnDataAvailableListener!=null) {
                 mOnDataAvailableListener.onCharacteristicRead(gatt, characteristic, status);
+            }
         }
+
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+          //  super.onCharacteristicWrite(gatt, characteristic, status);
+            if (mOnDataAvailableListener!=null) {
+                mOnDataAvailableListener.onCharacteristicWrite(gatt,characteristic,status);
+            }
+        }
+
 
         @Override  //characteristic改变时（终端有数据传过来）当会调用到该接口，
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
-            if (mOnDataAvailableListener!=null)
+            if (mOnDataAvailableListener!=null) {
                 mOnDataAvailableListener.onCharacteristicRevice(gatt, characteristic);
+            }
         }
     };
 
