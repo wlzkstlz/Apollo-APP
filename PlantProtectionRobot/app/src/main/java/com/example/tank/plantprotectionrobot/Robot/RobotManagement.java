@@ -77,7 +77,7 @@ public class RobotManagement{
 
                         if (workBleGroup.mBLE != null && workBleGroup.isConnectGattCh != null) {
                             //
-                            if (getInCenterCommond()) {
+                            if (getInCenterCommond() &&  workBleGroup.isWorkingId != BLEService.BLE_ROBOT_CONECT) {
                                 workBleGroup.sendCommand(comBuf);
                                 pollCount++;
                                 if (pollCount >= workRobotList.size()) {
@@ -96,7 +96,7 @@ public class RobotManagement{
 
                         if (workBleGroup.mBLE != null && workBleGroup.isConnectGattCh != null) {
 
-                            if (getInWorkMapCommond()) {
+                            if (getInWorkMapCommond()  &&  workBleGroup.isWorkingId != BLEService.BLE_ROBOT_CONECT) {
                                 workBleGroup.sendCommand(comBuf);
                             }
                         }

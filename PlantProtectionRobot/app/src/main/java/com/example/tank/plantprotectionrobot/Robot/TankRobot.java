@@ -9,7 +9,7 @@ import com.example.tank.plantprotectionrobot.Robot.HeatDataMsg;
 public class TankRobot{
 
 
-    public  final byte LORA_CH=40;//机器人LoRa通信通道
+    public  final byte LORA_CH=0;//机器人LoRa通信通道
     public  boolean isWorking; //是否在工作，flase表示新添加还没工作，true表示已工作
     public  boolean robotOnline; //在线true 掉线 line
     public  int checkCount; //不回复信息计数>3次认为离线

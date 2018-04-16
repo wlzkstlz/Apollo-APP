@@ -99,31 +99,36 @@ public class WorkBleGroup {
                 break;
         }
 
-        String bleName = device.getName().toString();
-        if (bleName.matches(check)) {
+     //   Log.d(TAG,"BLEService->"+device.getName());
+        if(device.getName() != null) {
 
-            if (findBleList.size() > 0) {
-                boolean flag = false;
-                int len = findBleList.size();
-                for (int i = 0; i < len; i++) {
-                    if (device.getName().toString().equals(findBleList.get(i).getName().toString())) {
-                        flag = true;
+            String bleName = device.getName().toString();
+            //    String bleName = device.getName();
+            if (bleName.matches(check)) {
+
+                if (findBleList.size() > 0) {
+                    boolean flag = false;
+                    int len = findBleList.size();
+                    for (int i = 0; i < len; i++) {
+                        if (device.getName().toString().equals(findBleList.get(i).getName().toString())) {
+                            flag = true;
+                        }
                     }
-                }
-                if (flag == false) {
+                    if (flag == false) {
+                        findBleList.add(device);
+                        addFlag = true;
+                    }
+                } else {
                     findBleList.add(device);
                     addFlag = true;
+                    //    Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
+                    Log.i(TAG, "WorKBleGroup->添加蓝牙" + device.getName().toString());
                 }
+
+
             } else {
-                findBleList.add(device);
-                addFlag = true;
-            //    Log.d(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
-                Log.i(TAG,"WorKBleGroup->添加蓝牙"+device.getName().toString());
+                //   Log.d(TAG,"WorKBleGroup->蓝牙搜索名字匹配失败");
             }
-
-
-        }else{
-         //   Log.d(TAG,"WorKBleGroup->蓝牙搜索名字匹配失败");
         }
 
         return addFlag;
